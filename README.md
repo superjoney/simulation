@@ -7,10 +7,10 @@ back, each with its own customer, prototype data and playbook.
 | Customer | Playbook | Agent |
 | --- | --- | --- |
 | Ruth Calloway | Escrow refund reissue | `agent_1701m4b8pgpze1ys6fn2g0m9qqkt` (Ruth-agent) |
-| Marcus Dell | Payment increase after paid shortage | add in `public/config.js` |
-| Dana Whitcomb | Insurance premium change | add in `public/config.js` |
+| Marcus Dell | Payment increase after paid shortage | `agent_8801m4b9kpqye5e8vv0m0emfvqk3` |
+| Dana Whitcomb | Insurance premium change | `agent_6301m0ztb3e3ew3a7x5y5abhwjx6` |
 
-Customers without an agent ID are skipped, so a session needs at least two agents for two calls.
+A session plays two of the three; **Study settings** picks which two and in what order.
 
 ## Run it
 

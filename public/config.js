@@ -19,14 +19,14 @@ window.SIM_CONFIG = {
       name: "Marcus Dell",
       phone: "(816) 555 – 0173",
       playbook: "Payment increase after paid shortage",
-      agentId: "",
+      agentId: "agent_8801m4b9kpqye5e8vv0m0emfvqk3",
     },
     {
       id: "dana",
       name: "Dana Whitcomb",
       phone: "(720) 555 – 0126",
       playbook: "Insurance premium change",
-      agentId: "",
+      agentId: "agent_6301m0ztb3e3ew3a7x5y5abhwjx6",
     },
   ],
 
