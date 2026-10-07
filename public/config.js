@@ -10,6 +10,7 @@ window.SIM_CONFIG = {
   //   file:          path under public/
   //   startSelector: the element in the prototype that starts the call when clicked
   //   caller:        name shown in the call controls
+  //   callerPhone:   number shown in the call controls
   prototypes: [
     {
       id: "rail-snapshot-2",
@@ -17,6 +18,7 @@ window.SIM_CONFIG = {
       file: "prototypes/rail-snapshot-2.html",
       startSelector: "#tm-start",
       caller: "Marcus Johnson",
+      callerPhone: "(444) 222 – 8888",
     },
   ],
 

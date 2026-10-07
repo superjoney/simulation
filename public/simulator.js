@@ -14,6 +14,8 @@
   var callState = "idle"; // idle | connecting | connected | ended | failed
   var timer = null;
   var muted = false;
+  var onHold = false;
+  var proto = null;
   var log = null;
 
   /* ---------------- setup screen ---------------- */
@@ -87,7 +89,8 @@
 
   /* ---------------- session + prototype ---------------- */
 
-  function startSession(participantId, proto) {
+  function startSession(participantId, p) {
+    proto = p;
     log = {
       sessionId: new Date().toISOString().replace(/[:.]/g, "-"),
       participantId: participantId,
@@ -107,7 +110,7 @@
     $("setup").hidden = true;
     var stage = $("stage");
     stage.hidden = false;
-    stage.addEventListener("load", function () { hookPrototype(stage, proto); });
+    stage.addEventListener("load", function () { hookPrototype(stage); });
     stage.src = proto.file;
 
     var initials = (proto.caller || "Caller").split(/\s+/).map(function (w) { return w[0]; }).join("").slice(0, 2);
@@ -116,7 +119,7 @@
     if (params.get("debug") === "1") showLog(true);
   }
 
-  function hookPrototype(stage, proto) {
+  function hookPrototype(stage) {
     var doc;
     try { doc = stage.contentDocument; } catch (e) { doc = null; }
     if (!doc) {
@@ -151,6 +154,40 @@
   }
 
   /* ---------------- the call ---------------- */
+
+  // The prototype's own call controls (prototypes/cc-controls.js), when it has them.
+  function protoControls() {
+    try { return $("stage").contentWindow.ccCall || null; } catch (e) { return null; }
+  }
+
+  // What the prototype's call controls call back into.
+  window.SimBridge = {
+    start: function () { if (callState === "failed") callState = "idle"; startCall(); },
+    end: endCall,
+    mute: setMuted,
+    hold: setHold,
+  };
+
+  function setMuted(m) {
+    muted = m;
+    $("call-mute").setAttribute("aria-pressed", String(muted));
+    $("call-mute-label").textContent = muted ? "Unmute" : "Mute";
+    if (conversation) conversation.setMicMuted(muted || onHold);
+    event("call", muted ? "Muted" : "Unmuted");
+  }
+
+  // Hold: the caller can't hear the representative and the representative can't hear the caller.
+  function setHold(h) {
+    onHold = h;
+    if (conversation) {
+      conversation.setMicMuted(muted || onHold);
+      conversation.setVolume({ volume: onHold ? 0 : 1 });
+      conversation.sendContextualUpdate(onHold
+        ? "The representative has placed you on hold. You hear hold music and wait."
+        : "The representative is back from hold and can hear you again.");
+    }
+    event("call", onHold ? "Placed on hold" : "Resumed from hold");
+  }
 
   function showIdleCall() {
     $("call").hidden = false;
@@ -197,7 +234,10 @@
       if (!conv) return;
       conversation = conv;
       if (callState !== "connecting" && callState !== "connected") conv.endSession();
-      else if (muted) conv.setMicMuted(true);
+      else if (muted || onHold) {
+        conv.setMicMuted(true);
+        if (onHold) conv.setVolume({ volume: 0 });
+      }
     }).catch(function (err) {
       var msg = (err && err.message) || String(err);
       event("error", msg);
@@ -235,8 +275,18 @@
 
   function setCallState(state, message) {
     callState = state;
+    if (state === "connecting") { muted = false; onHold = false; }
+    var cc = protoControls();
+    if (cc) cc.update({
+      state: state,
+      message: state === "failed" ? message || "Call failed" : "",
+      caller: proto && proto.caller,
+      phone: proto && proto.callerPhone,
+      connectedAt: log && log.callConnectedAt ? Date.parse(log.callConnectedAt) : undefined,
+      endedAt: log && log.callEndedAt ? Date.parse(log.callEndedAt) : undefined,
+    });
     var call = $("call");
-    call.hidden = false;
+    call.hidden = !!cc;
     call.className = "call is-" + state;
     $("call-answer").hidden = state !== "failed";
     clearInterval(timer);
@@ -264,13 +314,7 @@
     startCall();
   });
   $("call-end").addEventListener("click", endCall);
-  $("call-mute").addEventListener("click", function () {
-    muted = !muted;
-    this.setAttribute("aria-pressed", String(muted));
-    $("call-mute-label").textContent = muted ? "Unmute" : "Mute";
-    if (conversation) conversation.setMicMuted(muted);
-    event("call", muted ? "Muted" : "Unmuted");
-  });
+  $("call-mute").addEventListener("click", function () { setMuted(!muted); });
 
   window.addEventListener("pagehide", function () {
     if (conversation) conversation.endSession();

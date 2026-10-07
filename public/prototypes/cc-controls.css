@@ -1,0 +1,112 @@
+/* cc telephony controls — styles for the markup in the prototype (#aiq-incoming-banner, #aiq-callbar, #cc-float).
+   Rebuilt for the simulator; the original file was not included in the prototype export. */
+
+/* no call: nothing shows */
+#aiq-incoming-banner, #aiq-callbar { display: none; }
+
+/* both bars sit centered at the top of the page; the card moves down to make room */
+body.cc-on div:has(> .dv-card) { padding-top: 92px !important; }
+#aiq-incoming-banner, #aiq-callbar {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 450;
+  font-family: var(--nova-font-family); color: var(--nova-text, #111);
+}
+
+/* ---------- connecting ---------- */
+body.cc-connecting #aiq-incoming-banner {
+  display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 22px;
+  background: var(--nova-bg-primary, #fff); border: 1px solid var(--nova-border, #e9e9e9); border-radius: 100px;
+  font-size: 15px; font-weight: 500; white-space: nowrap; box-shadow: var(--nova-elevation-2);
+}
+.aiq-incoming-banner__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--nova-green-500, #2fa25f); animation: ccPulse 1.2s ease-in-out infinite; }
+body.cc-failed .aiq-incoming-banner__dot { background: var(--nova-red-500, #de3341); animation: none; }
+#aiq-incoming-banner .cc-retry { margin-left: 4px; }
+@keyframes ccPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.75); } }
+
+/* ---------- live / ended ---------- */
+body.cc-live #aiq-callbar, body.cc-ended #aiq-callbar {
+  display: flex; align-items: center; gap: 8px; padding: 6px;
+  background: var(--nova-bg-primary, #fff); border: 1px solid var(--nova-border, #e9e9e9); border-radius: 18px;
+  box-shadow: var(--nova-elevation-2);
+}
+body.cc-failed #aiq-callbar { display: none; }
+body.cc-failed #aiq-incoming-banner {
+  display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 8px 0 22px;
+  background: var(--nova-bg-primary, #fff); border: 1px solid var(--nova-border, #e9e9e9); border-radius: 100px;
+  font-size: 15px; font-weight: 500; white-space: nowrap;
+}
+
+.cc-cluster:empty { display: none; }
+.cc-pill {
+  display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 4px 0 18px;
+  background: var(--nova-green-50, #eef7f1); border: 1px solid var(--nova-green-100, #d6ebdd); border-radius: 100px;
+  white-space: nowrap;
+}
+.cc-name { font-size: 15px; font-weight: 500; margin-right: 8px; }
+.cc-meta { font-size: 13px; color: var(--nova-text-subtle, #545454); font-variant-numeric: tabular-nums; margin-right: 10px; }
+.cc-meta .cc-phone { margin-right: 6px; }
+.cc-held { color: var(--nova-yellow-700, #8a5a00); font-weight: 500; }
+
+.cc-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0;
+  border: 0; border-radius: 50%; background: none; color: var(--nova-gray-800, #111); cursor: pointer;
+  transition: background var(--nova-duration-min, .1s) var(--nova-ease-out, ease-out);
+}
+.cc-btn:hover { background: var(--nova-gray-08-opacity, rgba(0,0,0,.08)); }
+.cc-btn[aria-pressed="true"] { background: var(--nova-gray-800, #111); color: #fff; }
+.cc-btn .nova-icon, .cc-end .nova-icon { --nova-icon-stroke: currentColor; color: inherit; }
+.cc-btn .nova-icon { width: 20px; height: 20px; }
+.cc-end {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 18px 0 14px; margin-left: 6px;
+  border: 0; border-radius: 100px; background: var(--nova-gray-800, #111); color: #fff;
+  font: inherit; font-size: 15px; font-weight: 500; cursor: pointer;
+}
+.cc-end:hover { background: #000; }
+.cc-end .nova-icon { width: 20px; height: 20px; }
+.cc-btn:focus-visible, .cc-end:focus-visible, .cc-demo-btn:focus-visible, .cc-retry:focus-visible { outline: 2px solid var(--nova-gray-800, #111); outline-offset: 2px; }
+
+/* ended: name + duration only */
+body.cc-ended .cc-pill { background: var(--nova-bg-secondary, #f7f7f7); border-color: var(--nova-border, #e9e9e9); padding-right: 18px; }
+body.cc-ended .cc-btn, body.cc-ended .cc-end, body.cc-ended #cc-popout-btn { display: none; }
+
+/* pop-out button + placeholder */
+.cc-demo-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0;
+  border: 0; border-radius: 50%; background: none; color: var(--nova-icon-secondary, #8a8a8a); cursor: pointer;
+}
+.cc-demo-btn:hover { background: var(--nova-gray-08-opacity, rgba(0,0,0,.08)); color: var(--nova-text, #111); }
+.cc-demo-btn .nova-icon { width: 18px; height: 18px; }
+.aiq-callbar__placeholder[hidden] { display: none; }
+.aiq-callbar__placeholder { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; font-size: 13px; color: var(--nova-text-subtle, #545454); }
+.aiq-callbar__dock-link { border: 0; background: none; padding: 0; font: inherit; font-weight: 500; color: var(--nova-text, #111); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+body.cc-floating #cc-popout-btn { display: none; }
+
+/* retry (failed state) */
+.cc-retry { height: 36px; padding: 0 16px; border: 0; border-radius: 100px; background: var(--nova-gray-800, #111); color: #fff; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+
+/* small popover for + and keypad */
+.cc-pop {
+  position: fixed; z-index: 470; min-width: 220px; padding: 12px; background: var(--nova-bg-primary, #fff);
+  border: 1px solid var(--nova-border, #e9e9e9); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  font-family: var(--nova-font-family); font-size: 13px; color: var(--nova-text-subtle, #545454);
+}
+.cc-pop-t { margin: 0 0 8px; font-size: 13px; font-weight: 500; color: var(--nova-text, #111); }
+.cc-keys { display: grid; grid-template-columns: repeat(3, 48px); gap: 6px; justify-content: center; margin-bottom: 8px; }
+.cc-keys button { height: 40px; border: 0; border-radius: 10px; background: var(--nova-bg-secondary, #f7f7f7); font: inherit; font-size: 16px; color: var(--nova-text, #111); cursor: pointer; }
+.cc-keys button:hover { background: var(--nova-gray-100, #f2f2f2); }
+
+/* ---------- floating, draggable ---------- */
+.cc-float {
+  position: fixed; top: 120px; left: 40px; z-index: 460; display: flex; flex-direction: column;
+  background: var(--nova-bg-primary, #fff); border: 1px solid var(--nova-border, #e9e9e9); border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.14); font-family: var(--nova-font-family);
+}
+.cc-float[hidden] { display: none; }
+.cc-float__bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px 14px; cursor: grab; user-select: none; touch-action: none; }
+.cc-float__bar:active { cursor: grabbing; }
+.cc-float__grip { color: var(--nova-icon-secondary, #8a8a8a); }
+.cc-float__title { flex: 1; font-size: 12px; font-weight: 500; color: var(--nova-text-subtle, #545454); }
+.cc-float__dock { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; font: inherit; font-size: 12px; color: var(--nova-text-subtle, #545454); cursor: pointer; border-radius: 6px; padding: 4px 6px; }
+.cc-float__dock:hover { background: var(--nova-gray-08-opacity, rgba(0,0,0,.08)); color: var(--nova-text, #111); }
+.cc-float__body { padding: 4px 6px 6px; }
+
+@media (prefers-reduced-motion: reduce) { .aiq-incoming-banner__dot { animation: none; } }

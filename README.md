@@ -55,9 +55,24 @@ The caller's persona, scenario and voice are set on the agent in the ElevenLabs 
 current prototype's scenario is Marcus Johnson (loan 456123789) calling about a payment increase
 after paying an escrow shortage.
 
+## Call controls
+
+The prototype export didn't include its telephony files, so `public/prototypes/cc-controls.js` and
+`cc-controls.css` rebuild them. They render the call bar at the top of the prototype (caller, number,
+timer, mute, hold, add, keypad, End, pop-out) and drive the voice call:
+
+- **Mute** stops the participant's microphone.
+- **Hold** mutes both directions and tells the agent it's on hold; resuming tells it the representative is back.
+- **End** hangs up the agent.
+- **Add** and **keypad** open a note saying they aren't available in the simulation.
+
+Any prototype that loads `cc-controls.js` from its own folder gets these controls. For others, the simulator
+shows its own floating call bar instead.
+
 ## Files
 
 - `server.js`: static server, token endpoint, session log writer
 - `public/index.html`, `simulator.js`, `simulator.css`: setup screen, call controls, session log
 - `public/config.js`: agent and prototype settings
 - `public/prototypes/rail-snapshot-2.html`: the prototype, unmodified
+- `public/prototypes/cc-controls.js`, `cc-controls.css`: the prototype's call controls, wired to the voice call
