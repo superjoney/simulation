@@ -1,0 +1,12 @@
+{
+  "name": "call-center-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Call center simulator for user testing: an ElevenLabs voice agent calls in while participants work in a prototype.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

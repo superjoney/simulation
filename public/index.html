@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Call Center Simulator</title>
+  <link rel="stylesheet" href="simulator.css">
+</head>
+<body>
+  <!-- Researcher setup: shown before handing the screen to the participant -->
+  <main id="setup" class="setup">
+    <form id="setup-form" class="setup-card">
+      <h1>Call center simulator</h1>
+      <p class="setup-sub">Set up the session, then hand the screen to the participant. The voice agent calls in when they click the prototype's start button.</p>
+
+      <label class="field">
+        <span>Participant ID</span>
+        <input id="participant" name="participant" autocomplete="off" placeholder="e.g. P07" required>
+      </label>
+
+      <label class="field">
+        <span>Prototype</span>
+        <select id="prototype" name="prototype"></select>
+      </label>
+
+      <div class="field">
+        <span>Microphone</span>
+        <div class="mic-row">
+          <button type="button" id="mic-test" class="btn btn-secondary">Check microphone</button>
+          <span id="mic-status" class="mic-status">Not checked</span>
+        </div>
+        <div class="meter" aria-hidden="true"><div id="mic-meter"></div></div>
+      </div>
+
+      <p id="agent-info" class="setup-meta"></p>
+      <button type="submit" class="btn btn-primary">Start session</button>
+    </form>
+  </main>
+
+  <!-- Participant view: the prototype, full screen -->
+  <iframe id="stage" class="stage" title="Prototype" hidden allow="microphone; autoplay"></iframe>
+
+  <!-- Call controls (shown once the call starts) -->
+  <div id="call" class="call" hidden role="region" aria-label="Call controls">
+    <div class="call-avatar" id="call-avatar" aria-hidden="true"></div>
+    <div class="call-text">
+      <div class="call-name" id="call-name"></div>
+      <div class="call-status"><span id="call-status">Connecting…</span><span class="eq" id="call-eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
+    </div>
+    <button type="button" id="call-answer" class="call-btn call-answer" title="Start call" hidden>
+      <svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+      <span class="sr">Start call</span>
+    </button>
+    <button type="button" id="call-mute"class="call-btn" aria-pressed="false" title="Mute">
+      <svg viewBox="0 0 24 24" class="ic-mic"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>
+      <svg viewBox="0 0 24 24" class="ic-mic-off"><path d="M15 9.3V6a3 3 0 0 0-5.9-.8M9 9v3a3 3 0 0 0 5.1 2.1M19 11a7 7 0 0 1-1.2 3.9M5 11a7 7 0 0 0 11.3 5.5M12 18v3M3 3l18 18"/></svg>
+      <span class="sr" id="call-mute-label">Mute</span>
+    </button>
+    <button type="button" id="call-end" class="call-btn call-end" title="End call">
+      <svg viewBox="0 0 24 24"><path d="M3 15.5c5-4.7 13-4.7 18 0l-2.4 2.4-3.3-1.6v-2.6c-2.1-.7-4.5-.7-6.6 0v2.6l-3.3 1.6z"/></svg>
+      <span class="sr">End call</span>
+    </button>
+  </div>
+
+  <!-- Researcher panel: Ctrl+Shift+L (or ?debug=1) -->
+  <aside id="log" class="log" hidden aria-label="Session log">
+    <header>
+      <strong>Session log</strong>
+      <button type="button" id="log-close" class="btn-link">Close</button>
+    </header>
+    <dl id="log-meta"></dl>
+    <ol id="log-transcript"></ol>
+    <footer>
+      <button type="button" id="log-download" class="btn btn-secondary">Download JSON</button>
+      <button type="button" id="log-restart" class="btn btn-secondary">New session</button>
+    </footer>
+  </aside>
+
+  <script src="config.js"></script>
+  <script src="https://unpkg.com/@elevenlabs/client@1.27.0/dist/lib.iife.js"></script>
+  <script src="simulator.js"></script>
+</body>
+</html>
