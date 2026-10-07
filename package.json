@@ -4,7 +4,8 @@
   "private": true,
   "description": "Call center simulator for user testing: an ElevenLabs voice agent calls in while participants work in a prototype.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build:prototypes": "node tools/build-prototypes.js"
   },
   "engines": {
     "node": ">=18"
