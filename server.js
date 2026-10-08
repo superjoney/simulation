@@ -10,6 +10,8 @@ const path = require("path");
 const { createStore } = require("./lib/store");
 const { createAuth } = require("./lib/auth");
 const metrics = require("./lib/metrics");
+const study = require("./lib/study");
+const { createBaseline, compare: compareBaseline } = require("./lib/baseline");
 
 const PORT = Number(process.env.PORT) || 3000;
 const API_KEY = process.env.ELEVENLABS_API_KEY || "";
@@ -23,6 +25,7 @@ const RESEARCHER_KEY = process.env.RESEARCHER_KEY || "";
 
 const store = createStore(SESSIONS_DIR);
 const auth = createAuth(process.env.RESEARCHERS);
+const baseline = createBaseline(SESSIONS_DIR);
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -125,7 +128,7 @@ async function participantApi(req, res, pathname, query) {
 function summaries() {
   return store.all().map((p) => metrics.summarize(p, store.readEvents(p.code)));
 }
-const lite = (s) => Object.assign({}, s, { calls: s.calls.map((c) => Object.assign({}, c, { transcript: undefined, steps: undefined })) });
+const lite = (s) => Object.assign({}, s, { calls: s.calls.map((c) => Object.assign({}, c, { transcript: undefined, steps: undefined, features: undefined })) });
 
 async function adminApi(req, res, pathname, query) {
   if (pathname === "/api/admin/login" && req.method === "POST") {
@@ -163,6 +166,40 @@ async function adminApi(req, res, pathname, query) {
     const ok = store.remove(body.code);
     if (ok) console.log(`${me} removed participant ${body.code}`);
     return sendJson(res, ok ? 200 : 404, { ok });
+  }
+  if (pathname === "/api/admin/study" && req.method === "GET") return sendJson(res, 200, study.definitions());
+  // a researcher's call on how an anchor question went (overrides the automatic guess)
+  if (pathname === "/api/admin/code" && req.method === "POST") {
+    const body = await readBody(req, 1e5).catch(() => ({}));
+    const p = store.byCode(body.code);
+    if (!p) return sendJson(res, 404, { error: "unknown_code" });
+    const key = Number(body.n) + ":" + String(body.anchor || "").slice(0, 10);
+    const coding = Object.assign({}, p.coding);
+    if (!body.outcome && !body.note) delete coding[key];
+    else coding[key] = { outcome: study.OUTCOMES.includes(body.outcome) ? body.outcome : null, note: String(body.note || "").slice(0, 2000), by: me, at: new Date().toISOString() };
+    store.update(p.code, { coding });
+    return sendJson(res, 200, { ok: true });
+  }
+  if (pathname === "/api/admin/baseline" && req.method === "GET") {
+    const b = baseline.get();
+    if (!b) return sendJson(res, 200, { baseline: null });
+    const values = {};   // distinct call-type values, so they can be matched to the customers
+    if (b.mapping.type != null) b.rows.forEach((r) => { const v = String(r[b.mapping.type] || "").trim(); if (v) values[v] = (values[v] || 0) + 1; });
+    return sendJson(res, 200, {
+      baseline: { name: b.name, uploadedAt: b.uploadedAt, by: b.by, headers: b.headers, rowCount: b.rows.length, sample: b.rows.slice(0, 5), mapping: b.mapping,
+        typeValues: Object.keys(values).sort((x, y) => values[y] - values[x]).slice(0, 60).map((v) => ({ value: v, count: values[v] })) },
+      compare: compareBaseline(b, summaries()),
+    });
+  }
+  if (pathname === "/api/admin/baseline" && req.method === "POST") {
+    const body = await readBody(req, 25e6).catch((e) => ({ __err: e.message }));
+    if (body.__err) return sendJson(res, 413, { error: "file_too_large" });
+    try {
+      if (body.csv != null) { baseline.upload(body.name, body.csv, me); console.log(`${me} uploaded a baseline (${body.name})`); }
+      else if (body.mapping) baseline.setMapping(body.mapping);
+      else if (body.clear) baseline.clear();
+    } catch (e) { return sendJson(res, 400, { error: e.message }); }
+    return sendJson(res, 200, { ok: true });
   }
   if (pathname === "/api/admin/export.csv" && req.method === "GET") {
     res.writeHead(200, {

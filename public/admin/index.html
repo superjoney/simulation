@@ -29,6 +29,8 @@
       </div>
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+        <button role="tab" data-tab="behaviour" aria-selected="false">Behaviour</button>
+        <button role="tab" data-tab="baseline" aria-selected="false">Baseline</button>
         <button role="tab" data-tab="participants" aria-selected="false">Participants</button>
         <button role="tab" data-tab="invites" aria-selected="false">Invites</button>
       </nav>
@@ -61,6 +63,57 @@
           <a class="btn btn-secondary" href="/api/admin/export.json">Everything (JSON)</a>
         </div>
         <p class="note">The CSV has one row per participant with each call’s metrics. The JSON has every event, including transcripts and clicks.</p>
+      </div>
+    </section>
+
+    <!-- Behaviour -->
+    <section id="tab-behaviour" class="page" hidden>
+      <div class="filters"><div class="chips" id="b-clients"></div><span class="muted" id="b-count"></span></div>
+      <div class="card">
+        <div class="card-h"><h2>Anchor questions</h2><span class="muted">The caller’s word-for-word line starts the clock</span></div>
+        <div id="b-anchors" class="anchors"></div>
+        <p class="note">First reply: from the caller starting the line to the end of the participant’s first reply. Playbook action: time to the related step (negative if done before the question). Outcomes use the automatic guess unless a researcher has coded the call in Participants.</p>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-h"><h2>Answer checks</h2><span class="muted">Share of calls</span></div>
+          <div class="table-wrap"><table class="table" id="b-flags"></table></div>
+          <p class="note">Detected automatically from what the participant said and clicked. Speech-to-text can miss numbers, so check the transcript before quoting these.</p>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Click quality</h2></div>
+          <div id="b-clicks"></div>
+          <p class="note">Rage click: 3 or more clicks within a second in the same spot. Dead click: nothing on the page changed within a second of the click.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Feature use</h2><span class="muted" id="b-areas"></span></div>
+        <div class="table-wrap"><table class="table" id="b-features"></table></div>
+      </div>
+    </section>
+
+    <!-- Baseline -->
+    <section id="tab-baseline" class="page" hidden>
+      <div class="card" id="bl-upload-card">
+        <div class="card-h"><h2>Current system baseline</h2><span class="muted" id="bl-info"></span></div>
+        <p class="note" style="margin-top:0">Upload a CSV export of calls from the current system, one row per call. You’ll then pick which columns hold handle time, hold time and so on, and which call types match each customer scenario.</p>
+        <div class="actions">
+          <label class="btn btn-primary" for="bl-file" id="bl-file-label">Upload CSV</label>
+          <input id="bl-file" type="file" accept=".csv,.tsv,.txt,text/csv" class="sr">
+          <button id="bl-clear" class="btn btn-ghost" type="button" hidden>Remove baseline</button>
+        </div>
+        <p id="bl-msg" class="note" role="status"></p>
+      </div>
+      <div class="card" id="bl-compare-card" hidden>
+        <div class="card-h"><h2>Current system vs prototype</h2><div class="chips" id="bl-scopes"></div></div>
+        <div class="table-wrap"><table class="table" id="bl-compare"></table></div>
+        <p class="note">Prototype numbers come from completed calls. Differences are the prototype minus the current system, so negative times are faster.</p>
+      </div>
+      <div class="card" id="bl-map-card" hidden>
+        <div class="card-h"><h2>Column mapping</h2><button id="bl-save" class="btn btn-primary" type="button">Save mapping</button></div>
+        <div id="bl-map" class="mapgrid"></div>
+        <div id="bl-types"></div>
+        <details class="more"><summary>Preview the first rows</summary><div class="table-wrap"><table class="table" id="bl-sample"></table></div></details>
       </div>
     </section>
 

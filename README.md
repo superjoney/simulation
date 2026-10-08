@@ -61,7 +61,23 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
    call's metrics, the steps taken, the transcript and every event. Export CSV (one row per
    participant) or JSON (every event).
 
-Data is stored in `SESSIONS_DIR`: `participants.json` and `events/<code>.jsonl`.
+6. **Behaviour** (per customer):
+   - *Anchor questions*: each caller says two lines word for word (see the scripts). The dashboard
+     finds them in the transcript and times the participant's first reply, any hold, and the related
+     playbook step. Each call gets an automatic outcome (answered without hold / held then answered /
+     not asked); researchers can override it, or mark "gave up or guessed", in the participant's detail.
+   - *Answer checks*: auto-detected from speech and clicks (e.g. confirmed the address before
+     reissuing, gave $1,440.95, said "$22 less"). Pointers to check in the transcript, not verdicts.
+     Defined in `lib/study.js`.
+   - *Click quality*: rage clicks (3+ in a second in one spot) and dead clicks (nothing on the page
+     changed within a second), with where they happened.
+   - *Feature use*: which controls people used, in which area of the screen, and when first.
+7. **Baseline**: upload a CSV export from the current system (one row per call), map its columns
+   (handle time, time to verify, holds, hold time, transferred, call type) and match its call types
+   to the scenarios. The tab then compares the current system with the prototype, overall and per
+   scenario. Times can be seconds, minutes, or `m:ss` / `h:mm:ss`.
+
+Data is stored in `SESSIONS_DIR`: `participants.json`, `events/<code>.jsonl` and `baseline.json`.
 
 ## Running a session
 
@@ -155,6 +171,7 @@ in the bottom-left corner that can be dragged anywhere.
 
 - `server.js`: static server, token endpoint, participant and event API, dashboard API
 - `lib/store.js`, `lib/metrics.js`, `lib/auth.js`: participant store, metrics, researcher sign-in
+- `lib/study.js`: anchor lines and answer checks per customer; `lib/baseline.js`: baseline CSV and comparison
 - `public/admin/`: researcher dashboard
 - `public/index.html`, `simulator.js`, `simulator.css`: setup screen, call sequence, session log
 - `public/config.js`: customers, agents and session settings

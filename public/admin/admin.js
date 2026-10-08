@@ -7,6 +7,7 @@
   var NAMES = {};
   (CFG.clients || []).forEach(function (c) { NAMES[c.id] = c.name; });
   var data = null, filter = "all", query = "", refreshTimer = 0;
+  var STUDY = { clients: {}, outcomes: [] }, bClient = null, blScope = "all", base = null;
 
   /* ---------------- helpers ---------------- */
 
@@ -30,8 +31,8 @@
   }
   function dur(ms) {
     if (ms == null) return "—";
-    var s = Math.round(ms / 1000);
-    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    var neg = ms < 0, s = Math.round(Math.abs(ms) / 1000);
+    return (neg ? "−" : "") + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
   }
   function when(iso) {
     if (!iso) return "—";
@@ -84,6 +85,7 @@
   function start(name) {
     $("login").hidden = true; $("app").hidden = false;
     $("me").textContent = name;
+    api("study").then(function (d) { STUDY = d; if (data) renderBehaviour(); }).catch(function () {});
     load();
     clearInterval(refreshTimer);
     refreshTimer = setInterval(load, 30000);
@@ -99,7 +101,8 @@
   document.querySelectorAll(".tabs button").forEach(function (b) {
     b.addEventListener("click", function () {
       document.querySelectorAll(".tabs button").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
-      ["overview", "participants", "invites"].forEach(function (t) { $("tab-" + t).hidden = t !== b.getAttribute("data-tab"); });
+      ["overview", "behaviour", "baseline", "participants", "invites"].forEach(function (t) { $("tab-" + t).hidden = t !== b.getAttribute("data-tab"); });
+      if (b.getAttribute("data-tab") === "baseline") loadBaseline();
     });
   });
   $("refresh").addEventListener("click", load);
@@ -110,7 +113,8 @@
     return api("overview").then(function (d) {
       data = d;
       $("updated").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
-      renderOverview(); renderPeople(); renderInvites();
+      renderOverview(); renderBehaviour(); renderPeople(); renderInvites();
+      if (!$("tab-baseline").hidden) loadBaseline();
     }).catch(function () {});
   }
 
@@ -159,6 +163,200 @@
     t2.appendChild(tb);
   }
 
+  /* ---------------- behaviour ---------------- */
+
+  function stat(label, value, sub) {
+    return el("div", {}, [el("dt", { text: label }), el("dd", {}, [value, sub ? el("small", { text: " " + sub }) : null])]);
+  }
+  function outcomeBar(outcomes, total) {
+    var names = STUDY.outcomes.length ? STUDY.outcomes : Object.keys(outcomes);
+    return el("div", {}, [
+      el("div", { class: "stack", role: "img", "aria-label": names.map(function (o) { return o + ": " + (outcomes[o] || 0); }).join(", ") },
+        names.map(function (o, i) { return outcomes[o] ? el("i", { class: "o" + i, style: "width:" + (100 * outcomes[o] / total) + "%" }) : null; })),
+      el("div", { class: "legend", style: "margin-top:6px" }, names.map(function (o, i) {
+        return el("span", {}, [el("i", { class: "o" + i }), o + " · " + (outcomes[o] || 0)]);
+      })),
+    ]);
+  }
+  function renderBehaviour() {
+    var list = (data.overview.behaviour || []);
+    var ids = list.map(function (b) { return b.client; });
+    if (!bClient || ids.indexOf(bClient) < 0) bClient = ids[0] || null;
+    var chips = $("b-clients"); chips.innerHTML = "";
+    list.forEach(function (b) {
+      chips.appendChild(el("button", { type: "button", "aria-pressed": String(b.client === bClient), text: who(b.client) + " · " + b.calls,
+        onclick: function () { bClient = b.client; renderBehaviour(); } }));
+    });
+    var b = list.filter(function (x) { return x.client === bClient; })[0];
+    ["b-anchors", "b-flags", "b-clicks", "b-features"].forEach(function (id) { $(id).innerHTML = ""; });
+    $("b-areas").textContent = ""; $("b-count").textContent = "";
+    if (!b) { $("b-anchors").appendChild(el("p", { class: "muted", text: "No connected calls yet." })); return; }
+    $("b-count").textContent = b.calls + " connected call" + (b.calls === 1 ? "" : "s") + " · " + b.people + " participant" + (b.people === 1 ? "" : "s");
+    var defs = (STUDY.clients[b.client] || {}).anchors || [];
+
+    b.anchors.forEach(function (a) {
+      var d = defs.filter(function (x) { return x.id === a.id; })[0] || {};
+      $("b-anchors").appendChild(el("div", { class: "anchor" }, [
+        el("div", { class: "anchor-h" }, [el("span", { class: "anchor-id", text: a.id }), el("h2", { text: a.label })]),
+        d.line ? el("p", { class: "anchor-line", text: "“" + d.line + "”" }) : null,
+        el("dl", { class: "stats" }, [
+          stat("Asked", a.asked + " of " + a.calls, "calls"),
+          stat("First reply", dur(a.medianReplyMs), "median"),
+          stat("Put on hold", a.asked ? pct(a.held / a.asked) : "—", a.held ? "median " + dur(a.medianHoldMs) : ""),
+          stat("Playbook action", dur(a.medianActionMs), d.actionLabel ? d.actionLabel.toLowerCase() : ""),
+        ]),
+        outcomeBar(a.outcomes, a.calls),
+      ]));
+    });
+
+    var ft = $("b-flags");
+    ft.appendChild(el("thead", {}, [el("tr", {}, [el("th", { text: "Check" }), el("th", { text: "Calls" })])]));
+    var ftb = el("tbody");
+    b.flags.forEach(function (f) {
+      var cell;
+      if (Object.keys(f.values).length) {
+        cell = el("td", { text: Object.keys(f.values).map(function (k) { return k + " " + f.values[k]; }).join(" · ") });
+      } else {
+        var w = f.n ? Math.round(100 * f.yes / f.n) : 0;
+        cell = el("td", {}, [el("div", { class: "barcell" }, [el("div", { class: "fn-bar" }, [el("i", { style: "width:" + w + "%;" + (f.good === false ? "background:var(--warn)" : "") })]),
+          el("span", { text: f.n ? f.yes + " of " + f.n : "—" })])]);
+      }
+      ftb.appendChild(el("tr", {}, [el("td", { text: f.label }), cell]));
+    });
+    ft.appendChild(ftb);
+
+    var c = $("b-clicks");
+    c.appendChild(el("div", { class: "mini" }, [
+      el("div", {}, [el("b", { text: String(b.rage.bursts) }), el("span", { text: "rage clicks · " + b.rage.people + " of " + b.people + " people" })]),
+      el("div", {}, [el("b", { text: String(b.dead.clicks) }), el("span", { text: "dead clicks" })]),
+    ]));
+    function top(title, rows) {
+      if (!rows.length) return;
+      c.appendChild(el("div", { class: "h3", text: title }));
+      c.appendChild(el("ul", { class: "toplist" }, rows.map(function (r) { return el("li", {}, [el("span", { text: r.target }), el("span", { text: String(r.count) })]); })));
+    }
+    top("Where people rage clicked", b.rage.top);
+    top("Where clicks did nothing", b.dead.top);
+
+    var areas = b.areas, totalA = Object.keys(areas).reduce(function (n, k) { return n + areas[k]; }, 0);
+    $("b-areas").textContent = Object.keys(areas).sort(function (x, y) { return areas[y] - areas[x]; })
+      .map(function (k) { return k + " " + pct(areas[k] / totalA); }).join(" · ");
+    var t = $("b-features");
+    t.appendChild(el("thead", {}, [el("tr", {}, ["Control", "Area", "People who used it", "Clicks", "First used"].map(function (h, i) { return el("th", { class: i > 2 ? "r" : "", text: h }); }))]));
+    var tb = el("tbody");
+    if (!b.features.length) tb.appendChild(el("tr", {}, [el("td", { class: "empty", colspan: "5", text: "No clicks yet." })]));
+    b.features.slice(0, 40).forEach(function (f) {
+      var w = b.people ? Math.round(100 * f.people / b.people) : 0;
+      tb.appendChild(el("tr", {}, [
+        el("td", { text: f.label }), el("td", { class: "muted", text: f.area }),
+        el("td", {}, [el("div", { class: "barcell" }, [el("div", { class: "fn-bar" }, [el("i", { style: "width:" + w + "%" })]), el("span", { text: w + "%" })])]),
+        el("td", { class: "r", text: String(f.clicks) }), el("td", { class: "r", text: dur(f.medianFirstMs) }),
+      ]));
+    });
+    t.appendChild(tb);
+    if (b.features.length > 40) t.appendChild(el("caption", { class: "note", style: "caption-side:bottom;text-align:left", text: "Top 40 of " + b.features.length + ". The JSON export has every click." }));
+  }
+
+  /* ---------------- baseline ---------------- */
+
+  function loadBaseline() {
+    return api("baseline").then(function (d) { base = d; renderBaseline(); }).catch(function () {});
+  }
+  $("bl-file").addEventListener("change", function () {
+    var f = this.files[0]; this.value = "";
+    if (!f) return;
+    if (f.size > 20e6) { $("bl-msg").textContent = "That file is over 20 MB. Export fewer columns or a shorter date range."; return; }
+    $("bl-msg").textContent = "Uploading " + f.name + "…";
+    f.text().then(function (text) {
+      return api("baseline", { method: "POST", body: JSON.stringify({ name: f.name, csv: text }) });
+    }).then(function () { $("bl-msg").textContent = "Uploaded. Check the column mapping below."; return loadBaseline(); })
+      .catch(function (e) { $("bl-msg").textContent = "Couldn’t upload: " + e.message; });
+  });
+  $("bl-clear").addEventListener("click", function () {
+    if (!confirm("Remove the baseline file? You can upload it again later.")) return;
+    api("baseline", { method: "POST", body: JSON.stringify({ clear: true }) }).then(function () { $("bl-msg").textContent = "Removed."; loadBaseline(); });
+  });
+
+  var BL_FIELDS = [
+    ["aht", "Handle time", true], ["verify", "Time to verify", true], ["holds", "Number of holds", false],
+    ["hold", "Time on hold", true], ["transfer", "Transferred (yes/no)", false], ["type", "Call type or reason", false],
+  ];
+  function renderBaseline() {
+    var b = base && base.baseline;
+    $("bl-clear").hidden = !b;
+    $("bl-file-label").textContent = b ? "Replace CSV" : "Upload CSV";
+    $("bl-info").textContent = b ? b.name + " · " + b.rowCount.toLocaleString() + " calls · uploaded " + when(b.uploadedAt) + (b.by ? " by " + b.by : "") : "";
+    $("bl-map-card").hidden = !b; $("bl-compare-card").hidden = !b;
+    if (!b) return;
+    var m = b.mapping || {};
+    var map = $("bl-map"); map.innerHTML = "";
+    BL_FIELDS.forEach(function (f) {
+      var sel = el("select", { "data-key": f[0] }, [el("option", { value: "", text: "Not in this file" })].concat(b.headers.map(function (h, i) {
+        var o = el("option", { value: String(i), text: h }); if (m[f[0]] === i) o.selected = true; return o;
+      })));
+      var kids = [sel];
+      if (f[2]) {
+        var unit = el("select", { "data-unit": f[0], "aria-label": f[1] + " unit" }, ["seconds", "minutes", "ms"].map(function (u) {
+          var o = el("option", { value: u, text: u }); if ((m.units || {})[f[0]] === u) o.selected = true; return o;
+        }));
+        kids = [el("div", { class: "pair" }, [sel, unit])];
+      }
+      map.appendChild(el("label", {}, [el("span", { text: f[1] })].concat(kids)));
+    });
+    var types = $("bl-types"); types.innerHTML = "";
+    if (m.type != null && b.typeValues.length) {
+      types.appendChild(el("div", { class: "h3", style: "margin-top:16px", text: "Match call types to the study’s scenarios" }));
+      types.appendChild(el("div", { class: "types" }, b.typeValues.map(function (tv) {
+        var sel = el("select", { "data-type": tv.value }, [el("option", { value: "", text: "Not compared" })].concat((CFG.clients || []).map(function (c) {
+          var o = el("option", { value: c.id, text: c.name + " · " + (c.playbook || "") }); if ((m.types || {})[tv.value] === c.id) o.selected = true; return o;
+        })));
+        return el("label", {}, [el("span", { title: tv.value, text: tv.value + " (" + tv.count + ")" }), sel]);
+      })));
+      types.appendChild(el("p", { class: "note", text: "Times like 4:05 or 0:04:05 are read automatically; the unit applies to plain numbers." }));
+    }
+    var st = $("bl-sample"); st.innerHTML = "";
+    st.appendChild(el("thead", {}, [el("tr", {}, b.headers.map(function (h) { return el("th", { text: h }); }))]));
+    st.appendChild(el("tbody", {}, b.sample.map(function (r) { return el("tr", {}, b.headers.map(function (_, i) { return el("td", { text: r[i] || "" }); })); })));
+
+    // comparison
+    var scopes = base.compare.map(function (x) { return x.scope; });
+    if (scopes.indexOf(blScope) < 0) blScope = "all";
+    var sc = $("bl-scopes"); sc.innerHTML = "";
+    scopes.forEach(function (id) {
+      sc.appendChild(el("button", { type: "button", "aria-pressed": String(id === blScope), text: id === "all" ? "All calls" : who(id),
+        onclick: function () { blScope = id; renderBaseline(); } }));
+    });
+    var cmp = base.compare.filter(function (x) { return x.scope === blScope; })[0];
+    var t = $("bl-compare"); t.innerHTML = "";
+    t.appendChild(el("thead", {}, [el("tr", {}, ["Metric", "Current system", "Prototype", "Difference"].map(function (h, i) { return el("th", { class: i ? "r" : "", text: h }); }))]));
+    var tb = el("tbody");
+    cmp.metrics.forEach(function (x) {
+      var fmt = function (v) { return v == null ? "—" : x.kind === "time" ? dur(v * 1000) : x.kind === "rate" ? pct(v) : (Math.round(v * 10) / 10).toString(); };
+      var pick = function (st) { return x.kind === "rate" ? st.mean : x.kind === "count" ? st.mean : st.median; };
+      var lbl = x.kind === "time" ? "median" : x.kind === "count" ? "average" : "of calls";
+      var bv = pick(x.baseline), pv = pick(x.prototype);
+      var diff = bv != null && pv != null ? pv - bv : null;
+      var dtxt = diff == null ? "—" : x.kind === "time" ? (diff > 0 ? "+" : "") + dur(diff * 1000) + (bv ? " (" + (diff > 0 ? "+" : "") + Math.round(100 * diff / bv) + "%)" : "")
+        : x.kind === "rate" ? (diff > 0 ? "+" : "") + Math.round(diff * 100) + " pts" : (diff > 0 ? "+" : "") + (Math.round(diff * 10) / 10);
+      tb.appendChild(el("tr", {}, [
+        el("td", {}, [x.label, el("span", { class: "sub2", text: lbl })]),
+        el("td", { class: "r" }, [x.mapped ? fmt(bv) : "not mapped", el("span", { class: "sub2", text: x.mapped ? "n = " + x.baseline.n.toLocaleString() : "" })]),
+        el("td", { class: "r" }, [fmt(pv), el("span", { class: "sub2", text: "n = " + x.prototype.n })]),
+        el("td", { class: "r " + (diff == null || diff === 0 ? "" : diff < 0 ? "delta-good" : "delta-bad"), text: dtxt }),
+      ]));
+    });
+    t.appendChild(tb);
+  }
+  $("bl-save").addEventListener("click", function () {
+    var b = base && base.baseline; if (!b) return;
+    var m = { units: {}, types: {} };
+    document.querySelectorAll("#bl-map [data-key]").forEach(function (s) { m[s.getAttribute("data-key")] = s.value === "" ? null : Number(s.value); });
+    document.querySelectorAll("#bl-map [data-unit]").forEach(function (s) { m.units[s.getAttribute("data-unit")] = s.value; });
+    document.querySelectorAll("#bl-types [data-type]").forEach(function (s) { if (s.value) m.types[s.getAttribute("data-type")] = s.value; });
+    if (m.type === b.mapping.type) Object.keys((b.mapping.types || {})).forEach(function (k) { if (!(k in m.types) && !document.querySelector('#bl-types [data-type="' + CSS.escape(k) + '"]')) m.types[k] = b.mapping.types[k]; });
+    api("baseline", { method: "POST", body: JSON.stringify({ mapping: m }) }).then(function () { toast("Mapping saved"); loadBaseline(); });
+  });
+
   /* ---------------- participants ---------------- */
 
   var FILTERS = [
@@ -183,7 +381,7 @@
     var t = $("people"); t.innerHTML = "";
     var head = ["Participant", "Stage"];
     for (var k = 1; k <= maxCalls; k++) head.push("Call " + k);
-    head.push("Holds", "Paused", "Last activity");
+    head.push("Holds", "Rage · dead", "Paused", "Last activity");
     t.appendChild(el("thead", {}, [el("tr", {}, head.map(function (h) { return el("th", { text: h }); }))]));
     var tb = el("tbody");
     if (!list.length) tb.appendChild(el("tr", {}, [el("td", { class: "empty", colspan: String(head.length), text: "No participants here yet." })]));
@@ -199,7 +397,9 @@
           : c.connectedAt ? "in progress" : (c.endReason ? "didn’t connect" : "ringing") })] : ["—"]));
       }
       var holds = s.calls.reduce(function (n, c) { return n + c.holds; }, 0);
-      cells.push(el("td", { text: String(holds) }), el("td", { text: s.pauses ? dur(s.pauseMs) : "—" }), el("td", { text: when(s.lastSeen) }));
+      var rage = s.calls.reduce(function (n, c) { return n + (c.rage ? c.rage.length : 0); }, 0);
+      var dead = s.calls.reduce(function (n, c) { return n + (c.dead ? c.dead.length : 0); }, 0);
+      cells.push(el("td", { text: String(holds) }), el("td", { text: rage + " · " + dead }), el("td", { text: s.pauses ? dur(s.pauseMs) : "—" }), el("td", { text: when(s.lastSeen) }));
       tb.appendChild(el("tr", { tabindex: "0", onclick: function () { openDetail(s.code); }, onkeydown: function (e) { if (e.key === "Enter") openDetail(s.code); } }, cells));
     });
     t.appendChild(tb);
@@ -253,6 +453,34 @@
           ["Conversation", c.conversationId || "—"],
         ]),
       ]);
+      if (c.anchors && c.anchors.length && c.connectedAt) {
+        card.appendChild(el("div", { class: "card-h", style: "margin:16px 0 0" }, [el("h2", { text: "Anchor questions" }), el("span", { class: "muted", text: "your call overrides the automatic guess" })]));
+        c.anchors.forEach(function (a) { card.appendChild(codeRow(s, c, a)); });
+      }
+      if (c.flags && c.flags.length && c.connectedAt) {
+        card.appendChild(el("div", { class: "card-h", style: "margin:14px 0 0" }, [el("h2", { text: "Answer checks" }), el("span", { class: "muted", text: "auto-detected" })]));
+        card.appendChild(el("ul", { class: "checks" }, c.flags.map(function (f) {
+          var v = f.value, mark = v == null ? "—" : v === true ? "✓" : v === false ? "✗" : "•";
+          var cls = v == null ? "na" : typeof v === "string" ? "" : (v === (f.good !== false)) ? "yes" : "no";
+          return el("li", {}, [el("b", { class: cls, text: mark }), el("span", { text: f.label + (typeof v === "string" ? ": " + v : "") })]);
+        })));
+      }
+      if ((c.rage && c.rage.length) || (c.dead && c.dead.length)) {
+        card.appendChild(el("div", { class: "card-h", style: "margin:14px 0 0" }, [el("h2", { text: "Click trouble" })]));
+        // repeated dead clicks on the same thing within a few seconds read as one line
+        var deadRows = [];
+        (c.dead || []).forEach(function (r) {
+          var last = deadRows[deadRows.length - 1];
+          if (last && last.target === r.target && r.afterMs - last.lastMs <= 3000) { last.count++; last.lastMs = r.afterMs; }
+          else deadRows.push({ target: r.target, afterMs: r.afterMs, lastMs: r.afterMs, count: 1 });
+        });
+        var rows = (c.rage || []).map(function (r) { return { ms: r.afterMs, text: "Rage click ×" + r.count + " · " + r.target }; })
+          .concat(deadRows.map(function (r) { return { ms: r.afterMs, text: "Dead click" + (r.count > 1 ? " ×" + r.count : "") + " · " + r.target }; }))
+          .sort(function (x, y) { return (x.ms || 0) - (y.ms || 0); });
+        card.appendChild(el("ul", { class: "steps" }, rows.map(function (r) {
+          return el("li", {}, [el("span", { class: "t", text: dur(r.ms) }), el("span", { text: r.text })]);
+        })));
+      }
       if (c.steps.length) {
         card.appendChild(el("div", { class: "card-h", style: "margin:14px 0 0" }, [el("h2", { text: "Playbook actions" }), el("span", { class: "muted", text: "time after connecting" })]));
         card.appendChild(el("ul", { class: "steps" }, c.steps.map(function (x) {
@@ -286,6 +514,28 @@
         if (!confirm("Remove " + s.email + "? Their link stops working. Their data is kept on the server but hidden from the dashboard.")) return;
         api("remove", { method: "POST", body: JSON.stringify({ code: s.code }) }).then(function () { closeDetail(); toast("Removed"); load(); });
       } })]));
+  }
+
+  function codeRow(s, c, a) {
+    var line = a.asked
+      ? "Asked at " + dur(a.askedMs) + " · first reply " + dur(a.replyMs) + (a.held ? " · on hold " + dur(a.holdMs) : " · no hold") +
+        (a.actionMs == null ? " · playbook action not taken" : " · playbook action " + (a.actionMs < 0 ? dur(-a.actionMs) + " before" : dur(a.actionMs) + " after"))
+      : "The caller didn’t say this line (or speech-to-text missed it).";
+    var sel = el("select", { "aria-label": "Outcome for " + a.id }, [el("option", { value: "", text: "Auto: " + a.auto })].concat(STUDY.outcomes.map(function (o) {
+      var op = el("option", { value: o, text: o }); if (a.coded && a.coded.outcome === o) op.selected = true; return op;
+    })));
+    var note = el("input", { type: "text", placeholder: "Note (optional)", value: a.note || "", "aria-label": "Note for " + a.id });
+    var save = function () {
+      api("code", { method: "POST", body: JSON.stringify({ code: s.code, n: c.n, anchor: a.id, outcome: sel.value, note: note.value }) })
+        .then(function () { toast("Saved"); load(); });
+    };
+    sel.addEventListener("change", save);
+    note.addEventListener("change", save);
+    return el("div", { class: "code-row" }, [
+      el("div", {}, [el("strong", { text: a.id + " · " + a.label }), el("span", { class: "sub2", text: line }),
+        a.coded ? el("span", { class: "sub2", text: "Coded by " + (a.coded.by || "?") + " · " + when(a.coded.at) }) : null]),
+      el("div", { class: "code-ctl" }, [sel, note]),
+    ]);
   }
 
   /* ---------------- invites ---------------- */

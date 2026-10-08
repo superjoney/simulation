@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-09.1"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-09.2"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -380,17 +380,43 @@
     logoStyle.textContent = ".shv-logo{cursor:pointer}";
     (doc.head || doc.documentElement).appendChild(logoStyle);
 
+    // Dead-click detection: a click that changes nothing on the page within a second. Parts of the page
+    // that change on their own (the call timer, clocks) are learned while the participant is idle and
+    // ignored, so only changes that follow the click count.
+    var autonomous = new WeakSet(), lastInputAt = 0, freshAt = 0;
+    var markInput = function () { lastInputAt = Date.now(); };
+    ["pointerdown", "keydown", "wheel"].forEach(function (t) { doc.addEventListener(t, markInput, true); });
+    try {
+      new doc.defaultView.MutationObserver(function (recs) {
+        var now = Date.now(), idle = now - lastInputAt > 1500;
+        recs.forEach(function (r) {
+          var t = r.type === "characterData" ? r.target.parentNode : r.target;
+          if (!t) return;
+          if (idle) autonomous.add(t);
+          else if (!autonomous.has(t)) freshAt = now;
+        });
+      }).observe(doc.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+    } catch (err) {}
+
     doc.addEventListener("click", function (e) {
       var el = e.target && e.target.closest ? e.target : null;
       if (!el) return;
       var ctl = el.closest("button, a, [role=button], [role=tab], [role=option], [role=menuitem], [role=checkbox], label, summary, input, select, textarea, [data-rz], [data-cc]");
-      var label = ctl ? (ctl.getAttribute("aria-label") || ctl.getAttribute("title") || ctl.textContent || ctl.getAttribute("placeholder") || ctl.name || "")
-        .replace(/\s+/g, " ").trim().slice(0, 80) : "";
+      var label = ctl ? (ctl.getAttribute("aria-label") || ctl.getAttribute("title") || ctl.textContent || ctl.getAttribute("placeholder") || ctl.name ||
+        ctl.getAttribute("data-rz") || ctl.getAttribute("data-cc") || "").replace(/\s+/g, " ").trim().slice(0, 80) : "";
       var w = doc.defaultView;
-      // every click is kept (with position) for click analysis and heatmaps
-      track("click", { n: call ? call.n : null, client: call ? call.client : null, label: label, tag: el.tagName.toLowerCase(),
-        interactive: !!ctl, x: Math.round(e.clientX), y: Math.round(e.clientY), sx: Math.round(w.scrollX), sy: Math.round(w.scrollY),
-        vw: w.innerWidth, vh: w.innerHeight });
+      var fields = { at: new Date().toISOString(), n: call ? call.n : null, client: call ? call.client : null, label: label, area: areaOf(el),
+        tag: el.tagName.toLowerCase(), interactive: !!ctl, x: Math.round(e.clientX), y: Math.round(e.clientY),
+        sx: Math.round(w.scrollX), sy: Math.round(w.scrollY), vw: w.innerWidth, vh: w.innerHeight };
+      // every click is kept (with position and whether anything happened) for click analysis
+      // keyboard-activated or scripted clicks have no position: kept, but left out of rage/dead analysis
+      if (!e.isTrusted || e.detail === 0) fields.synthetic = true;
+      var t0 = Date.now(), focus0 = doc.activeElement;
+      setTimeout(function () {
+        var focused = doc.activeElement && doc.activeElement !== focus0 && doc.activeElement !== doc.body;
+        fields.effect = freshAt >= t0 || focused || !!el.closest("input, select, textarea, a[href]");
+        track("click", fields);
+      }, 1000);
       if (el.closest("#cv-finish") && call) track("verified", { n: call.n, client: call.client });
       var rz = el.closest("[data-rz]");
       if (rz && call) track("step", { n: call.n, client: call.client, action: rz.getAttribute("data-rz") + (rz.getAttribute("data-v") ? ":" + rz.getAttribute("data-v") : ""), label: label });
@@ -415,6 +441,27 @@
         else showIdleCall();
       })();
     }
+  }
+
+  // Which part of the screen a click landed in, for feature-use and click analysis
+  var AREAS = [
+    ["#aiq-callbar, .cc-card, .cc-pop, .cc-menu, [data-cc]", "Phone"],
+    ["#aiqx-rail", "Right panel"],
+    ["#pg-guidance, #pg-guided-card", "Playbook"],
+    ["#tm-head", "Client header"],
+    ["#client-content, .dv-card", "Client record"],
+  ];
+  function areaOf(el) {
+    for (var i = 0; i < AREAS.length; i++) {
+      var hit = el.closest(AREAS[i][0]);
+      if (!hit) continue;
+      if (AREAS[i][1] === "Right panel") {
+        var pane = el.closest(".shv-pane[id]");
+        return "Right panel" + (pane ? " · " + pane.id.replace(/^shv-pane-/, "").replace(/^./, function (c) { return c.toUpperCase(); }) : "");
+      }
+      return AREAS[i][1];
+    }
+    return "Other";
   }
 
   // The rocket logo in the prototype: end the session and go back to the start page.
