@@ -83,6 +83,7 @@ module.exports = {
       // Recap · refinance pitch (Marcus only). Balance, rate and savings are invented estimates.
       recap: {
         label: "Refinance opportunity",
+        refer: true, // shows "Refer to Home Loan Expert"
         elig: "An <b>FHA Streamline Refinance</b>. The loan is FHA 30-year fixed at <b class=\"cx-num\">6.58%</b>, current, with on-time payments. At today’s <b class=\"cx-num\">5.875%</b>, principal and interest could drop about <b class=\"cx-num\">$126/mo</b> (est., $152,310 balance).",
         points: [
           "“Before we wrap up, I noticed your rate is 6.58%. Rates are lower right now, so a refinance could bring your monthly payment down.”",

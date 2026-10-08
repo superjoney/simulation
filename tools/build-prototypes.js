@@ -72,6 +72,64 @@ function common(t) {
   t = replace(t,
     "if (typeof W.pgCommit === 'function') W.pgCommit('e03');",
     "if (typeof W.pgCommit === 'function') W.pgCommit((W.SIM_CLIENT && W.SIM_CLIENT.playbook) || 'e03');");
+
+  // Generic playbooks: extra catalog entries, and neutral guidance instead of the shortage tiles
+  t = replace(t,
+    "    for (var i = 0; i < alias.length; i++) PG_GUIDANCE[alias[i]] = PG_GENERIC;\n  })();",
+    "    for (var i = 0; i < alias.length; i++) PG_GUIDANCE[alias[i]] = PG_GENERIC;\n  })();\n" +
+    "  if (window.SIM_CLIENT && window.SIM_CLIENT.addPlaybooks) window.SIM_CLIENT.addPlaybooks(PG_CATALOG, PG_GUIDANCE);");
+  t = replace(t,
+    "    [\'p02\', \'Payment date change\'], [\'e09\', \'Remove escrow request\'], [\'e11\', \'Escrow refund reissue\']\n  ];",
+    "    [\'p02\', \'Payment date change\'], [\'e09\', \'Remove escrow request\'], [\'e11\', \'Escrow refund reissue\']\n  ];\n" +
+    "  if (W.SIM_CLIENT && W.SIM_CLIENT.genericCatalog) PLAYBOOKS = PLAYBOOKS.concat(W.SIM_CLIENT.genericCatalog);");
+  t = replace(t, "function KAnum(id, g) {", "function KAnum(id, g) {\n    if (!id) return '';");
+  t = replace(t, "function KA(id) {", "function KA(id) {\n    if (!id) return '';", 2);
+  t = replace(t,
+    "if ((el = $('pg-sources')) && g.sources) el.innerHTML = '<span>Sources:</span>' +",
+    "if ((el = $('pg-sources')) && g.sources) el.innerHTML = !g.sources.length ? '' : '<span>Sources:</span>' +");
+
+  // Ruth's reissue (Rocket path): choose standard mail, FedEx or wire
+  t = replace(t,
+    "body: dl([stopRow, srcRow, ['Reissue to', TO], ['Delivery', 'Standard mail. No expedited or tracked option.'], ['Processing', '5 business days, plus mail time']]) +",
+    "body: '<div class=\"rz-acts\">' + seg('e11fod', [['mail', 'Standard mail'], ['fedex', 'FedEx'], ['wire', 'Wire']], s.fod, 'Form of delivery') + '</div>' +\n" +
+    "          dl(s.fod === 'wire'\n" +
+    "            ? [stopRow, srcRow, ['Send to', 'The client’s bank account'], ['Needs', 'Wire instructions from the client’s bank, or a voided check on bank letterhead, sent to the Research Dept ' + KA('KA-01804')], ['Processing', 'Starts once the Research Dept has the bank details']]\n" +
+    "            : [stopRow, srcRow, ['Reissue to', TO], ['Delivery', s.fod === 'fedex' ? 'FedEx · about $7, varies by address' : 'Standard mail · standard postage'], ['Processing', '5 business days, plus ' + (s.fod === 'fedex' ? 'FedEx transit' : 'mail time')]]) +");
+  t = replace(t,
+    "(go ? running('Placing the stop…') : confirmRow(btn('Stop payment and reissue', 'e11act', 'primary'))),\n        done: rcpt(['Stop placed on check 0041887' + at, 'Reissue requested · $1,284.60 · ref RI-48213']) };\n    } else if (b === 'nsm') {",
+    "(go ? running('Placing the stop…') : confirmRow(btn(s.fod === 'wire' ? 'Stop payment and request wire' : 'Stop payment and reissue', 'e11act', 'primary'))),\n" +
+    "        done: rcpt(s.fod === 'wire'\n" +
+    "          ? ['Stop placed on check 0041887' + at, 'Wire requested · $1,284.60 · ref RI-48213 · waiting on bank details']\n" +
+    "          : ['Stop placed on check 0041887' + at, 'Reissue requested by ' + (s.fod === 'fedex' ? 'FedEx' : 'standard mail') + ' · $1,284.60 · ref RI-48213']) };\n    } else if (b === 'nsm') {");
+  t = replace(t,
+    ": ['Next 5 business days', 'The new check is processed, then mailed' + (b === 'all' && s.fod === 'fedex' ? ' by FedEx.' : '. Add mail time.')],",
+    ": s.fod === 'wire' ? ['When the bank details arrive', 'The Research Dept sends the wire once it has the client’s bank details.']\n" +
+    "          : ['Next 5 business days', 'The new check is processed, then sent' + (s.fod === 'fedex' ? ' by FedEx.' : ' by mail. Add mail time.')],");
+  t = replace(t,
+    ": '“I’ve stopped the original check, so it can’t be cashed. A new check for $1,284.60 is on its way to ' + esc(aLine1(s.adr)) + '. It takes about 5 business days to process, plus ' + (b === 'all' && s.fod === 'fedex' ? 'FedEx delivery.' : 'mail time.') + '”',",
+    ": s.fod === 'wire' ? '“I’ve stopped the original check, so it can’t be cashed. To send the $1,284.60 by wire, we need wire instructions from your bank, or a voided check on bank letterhead, sent to our Research Department. Once we have that, the money goes out.”'\n" +
+    "        : '“I’ve stopped the original check, so it can’t be cashed. A new check for $1,284.60 is on its way to ' + esc(aLine1(s.adr)) + (s.fod === 'fedex' ? ' by FedEx' : '') + '. It takes about 5 business days to process, plus ' + (s.fod === 'fedex' ? 'FedEx delivery. FedEx has a fee of about $7.' : 'mail time.') + '”',");
+  t = replace(t,
+    "reissue: 'Check stopped. The reissue is on its way.'",
+    "reissue: s.fod === 'wire' ? 'Check stopped. The wire goes out once the bank details arrive.' : 'Check stopped. The reissue is on its way.'");
+
+  // Remove system-location labels, iAssist mentions, "Needs SME" tags and reviewer flags
+  t = replace(t, "(s.sys ? '<span class=\"rz-sys\">' + s.sys + '</span>' : '')", "''");
+  t = replace(t, "var UNV = '<span class=\"rz-unv\" title=\"Not in the CR training or HOOT articles reviewed. Confirm with an SME.\">Needs SME</span>';", "var UNV = '';");
+  t = replace(t, "TM.UNV = '<span class=\"rz-unv\" title=\"Not in the CR training or HOOT articles reviewed. Confirm with an SME.\">Needs SME</span>';", "TM.UNV = '';");
+  t = replace(t,
+    "(b === 'rkt' ? '<span class=\"pg-e11-bsep\">|</span>' + ctl('Loan · iAssist', 'e11loan', s.loan === 'iassist', 'iassist') + SEP + ctl('Legacy pre-iAssist', 'e11loan', s.loan === 'legacy', 'legacy') : '') +",
+    "");
+  t = replace(t, "so iAssist doesn’t ask to confirm the email.", "so no email confirmation is needed.");
+  t = replace(t, "<th>On file · iAssist</th>", "<th>On file</th>");
+  t = replace(t, "Can you run the analysis in iAssist?", "Can you run the analysis on this call?", 2);
+  t = replace(t, "CDOC logged by iAssist.", "CDOC logged.", 2);
+  t = replace(t, "; Escrow in iAssist)", ")");
+  t = replace(t,
+    "</style>\n<script id=\"shell-versions-shell\">",
+    "/* simulator build · no reviewer markers or data-source tooltips */\n" +
+    ".rz-unv,.rz-flag,.rz-sys,.rt-tip{display:none!important}\n.rt{border-bottom:0!important;cursor:inherit!important}\n" +
+    "</style>\n<script id=\"shell-versions-shell\">");
   return t;
 }
 
@@ -84,6 +142,7 @@ function forClient(t, id, c) {
   // inject the client profile first thing in <head>
   const data = {
     id, playbook: c.playbook, autopay: c.autopay, summary: c.summary, ctx: c.ctx,
+    nextPay: c.nextPay, keepE01: c.playbook === "e03",
   };
   t = replace(t, "<html><head>", "<html><head>\n<script id=\"sim-client\">" +
     RUNTIME.replace("__SIM_CLIENT_DATA__", JSON.stringify(data)) + "</script>");

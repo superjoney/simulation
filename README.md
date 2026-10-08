@@ -82,7 +82,15 @@ data in `tools/clients.js`. Each build:
 - rewrites the right panel (why they're calling, activity, payments, upcoming changes, taxes and
   insurance) and the live call summary for that customer. The Recap appears for Marcus only, as a
   refinance pitch (FHA Streamline, estimated figures);
-- fixes the right panel so it opens and stays open on laptop-width screens.
+- fixes the right panel so it opens and stays open on laptop-width screens;
+- lets Ruth's reissue go by standard mail, FedEx or wire;
+- adds generic playbooks to the "Something else…" dropdown (payoff quote, make a payment, autopay,
+  address change, late fee waiver, 1098, hardship, modification), with neutral guidance from the
+  customer's loan;
+- adds **Refer to Home Loan Expert** to Marcus's refinance recap: it shows a green lead number and
+  dials the Home Loan Expert on a second line;
+- checks off the Mini-Miranda when the participant clicks anywhere on it;
+- removes the iAssist system labels, "Needs SME" tags, reviewer flags and data-source tooltips.
 
 Every edit is an exact match, so if a new export changes the code the build stops with the line that
 no longer matches. To use a new export, replace the file in `prototypes-src/` and rebuild.
@@ -101,7 +109,11 @@ in the bottom-left corner that can be dragged anywhere.
 - **Mute** stops the participant's microphone.
 - **Hold** mutes both directions and tells the agent it's on hold; resuming tells it the representative is back.
 - **End** hangs up the agent.
-- **Add** and **keypad** open a note saying they aren't available in the simulation.
+- **+** opens a transfer list (Home Loan Expert, Banking CO, Insurance Team, Escrow, Research, Loss
+  Mitigation). Picking one puts the caller on hold and opens a second line that dials, rings and
+  connects. **Transfer** hands the caller over and ends the call; the red handset hangs up the second
+  line and takes the caller off hold.
+- **Keypad** opens a dial pad; tones aren't sent.
 
 ## Files
 

@@ -314,6 +314,13 @@
     end: endCall,
     mute: setMuted,
     hold: setHold,
+    log: function (text) { event("call", text); },
+    // Transfer from the call controls' second line: the customer leaves this call
+    transfer: function (to) {
+      var conv = conversation;
+      finishCall("transferred to " + to);
+      if (conv) conv.endSession();
+    },
   };
 
   function showIdleCall() {
