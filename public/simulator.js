@@ -1,14 +1,14 @@
 /* Call center simulator.
    A session plays several calls back to back. For each call it loads that client's prototype build in a
-   same-origin iframe and starts the client's ElevenLabs agent (the caller). The first call starts when the
-   participant clicks the prototype's start button; later calls start on their own after a short break,
-   which the participant can pause. Everything is kept in a session log (transcripts, clicks, timings)
-   that is saved to the server after each call. */
+   same-origin iframe and starts the client's ElevenLabs agent (the caller). The first call rings as soon as
+   the participant leaves the briefing; later calls start on their own after a short break, which the
+   participant can pause. After the last call comes a short survey. Everything is kept in a session log
+   (transcripts, clicks, timings) that is saved to the server after each call. */
 (function () {
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-09.2"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-09.3"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -70,13 +70,13 @@
 
   /* ---------------- who is this: invite link (?p=CODE) or shared link + email ---------------- */
 
-  function show(id) { ["intro", "setup", "brief", "notice"].forEach(function (x) { $(x).hidden = x !== id; }); }
+  function show(id) { ["intro", "brief", "survey", "notice"].forEach(function (x) { $(x).hidden = x !== id; }); }
   function notice(title, body) { $("notice-title").textContent = title; $("notice-body").textContent = body; show("notice"); }
 
   function boot() {
     if (fromFile) return notice("Open the study through its link", "This page was opened as a file. In the project folder run “npm start”, then open http://localhost:3000.");
     var code = params.get("p");
-    if (!code) { $("email-field").hidden = false; $("email").required = true; show("intro"); return; }
+    if (!code) { $("email-field").hidden = false; $("name-field").hidden = false; show("intro"); return; }
     fetch("api/participant?p=" + encodeURIComponent(code))
       .then(function (r) { return r.status === 404 ? null : r.ok ? r.json() : Promise.reject(); })
       .then(function (d) {
@@ -91,32 +91,74 @@
     progress = d.progress;
     history.replaceState(null, "", "?p=" + me.code + (params.get("debug") ? "&debug=1" : "") + (orderOverridden ? "&order=" + encodeURIComponent($("order").value) : ""));
     track("opened", { via: via, listed: me.listed, ua: navigator.userAgent.slice(0, 200), screen: screen.width + "x" + screen.height });
-    if (me.firstName) $("participant").value = me.firstName;
     if (progress.done) return notice("You’ve completed the study", "Thank you for taking part. You can close this tab.");
-    if (route) show(progress.consented ? "setup" : "intro");
+    if (progress.callsDone) return showSurvey(d.survey);
+    if (!route) return;
+    // first names come from the invite list; ask only when we don't have one
+    $("name-field").hidden = !!me.firstName;
+    if (progress.consented) {
+      $("intro-title").textContent = "Welcome back";
+      $("intro-sub").textContent = "Check your audio, then pick up where you left off.";
+      $("intro-needs").hidden = true;
+      $("consent-box").hidden = true;
+    }
+    show("intro");
   }
 
+  // Welcome screen: email (shared link only), name (if unknown), audio check and consent in one go
+  var plannedOrder = null, startIdx = 0;
   $("intro-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var err = $("intro-error");
     err.hidden = true;
-    if (!$("consent").checked) { err.textContent = "Please tick the box to agree before continuing."; err.hidden = false; return; }
+    var fail = function (msg) { err.textContent = msg; err.hidden = false; };
+    if (!$("email-field").hidden && !$("email").value.trim()) return fail("Enter the email your invitation was sent to.");
+    if (!$("name-field").hidden && !$("participant").value.trim()) return fail("Enter your first name.");
+    if ($("audio-devices").hidden) return fail("Allow your microphone first, so you can talk to the callers.");
+    if (!$("consent-box").hidden && !$("consent").checked) return fail("Please tick the box to agree before continuing.");
+    if (!CLIENTS.length) return fail("No callers are set up yet. Ask the research team to add an agent ID.");
+
     var ready = me ? Promise.resolve(true) : fetch("api/participant/identify", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: $("email").value }),
     }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (d) {
       identified(d, "email", false);
-      return !d.progress.done;
+      return !d.progress.done && !d.progress.callsDone;
     });
     ready.then(function (go) {
       if (!go) return;
-      track("consent");
-      progress.consented = true;
-      show("setup");
+      if (!progress.consented) { track("consent"); progress.consented = true; }
+      readDevices();
+      track("device", { mic: devices.inputLabel, speaker: devices.outputLabel });
+      var typed = $("name-field").hidden ? "" : $("participant").value.trim();
+      // save the name (if they typed one) and get this participant's call order (rotated across participants)
+      return fetch("api/participant/update", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.assign({ p: me.code, orders: orders.length }, typed ? { firstName: typed } : {})),
+      }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (d) {
+        me = d.participant;
+      }).catch(function () { if (typed) me.firstName = typed; }).then(briefing);
     }).catch(function (status) {
-      err.textContent = status === 400 ? "That doesn’t look like an email address." : "Couldn’t reach the study. Check your connection and try again.";
-      err.hidden = false;
+      fail(status === 400 ? "That doesn’t look like an email address." : "Couldn’t reach the study. Check your connection and try again.");
     });
   });
+
+  function briefing() {
+    var idx = me.orderIndex != null ? me.orderIndex % orders.length : 0;
+    plannedOrder = (orderOverridden ? $("order").value : orders[idx]).split(",");
+    var done = progress.completedCalls || [];
+    startIdx = 0;
+    while (startIdx < plannedOrder.length && done.indexOf(startIdx + 1) >= 0) startIdx++;
+    if (startIdx > 0) {
+      $("brief-title").textContent = "Welcome back";
+      $("brief-body").innerHTML = "";
+      var p = document.createElement("p");
+      p.className = "setup-sub";
+      p.textContent = "You’ve finished " + startIdx + " of " + plannedOrder.length + " calls. The next customer calls as soon as you press the button.";
+      $("brief-body").appendChild(p);
+      $("brief-go").textContent = "Start call " + (startIdx + 1);
+    }
+    show("brief");
+  }
 
   fetch("api/config")
     .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
@@ -270,48 +312,13 @@
     });
   });
 
-  var plannedOrder = null, startIdx = 0;
-
-  $("setup-form").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var err = $("setup-error");
-    err.hidden = true;
-    if (!CLIENTS.length) { err.textContent = "No callers are set up yet. Ask the research team to add an agent ID."; err.hidden = false; return; }
-    if ($("audio-devices").hidden) { err.textContent = "Allow your microphone first."; err.hidden = false; return; }
-    readDevices();
-    var first = $("participant").value.trim();
-    track("device", { mic: devices.inputLabel, speaker: devices.outputLabel });
-    // save the name and get this participant's call order (rotated across participants)
-    fetch("api/participant/update", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ p: me.code, firstName: first, orders: orders.length }),
-    }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (d) {
-      me = d.participant;
-    }).catch(function () {}).then(function () {
-      var idx = me.orderIndex != null ? me.orderIndex % orders.length : 0;
-      plannedOrder = (orderOverridden ? $("order").value : orders[idx]).split(",");
-      var done = progress.completedCalls || [];
-      startIdx = 0;
-      while (startIdx < plannedOrder.length && done.indexOf(startIdx + 1) >= 0) startIdx++;
-      if (startIdx > 0) {
-        $("brief-title").textContent = "Welcome back";
-        $("brief-body").innerHTML = "";
-        var p = document.createElement("p");
-        p.className = "setup-sub";
-        p.textContent = "You’ve finished " + startIdx + " of " + plannedOrder.length + " calls. When you’re ready, the next customer will call.";
-        $("brief-body").appendChild(p);
-        $("brief-go").textContent = "Continue to call " + (startIdx + 1);
-      }
-      show("brief");
-    });
-  });
 
   $("brief-go").addEventListener("click", function () {
     stopMeter();
     unlockAudio();
     openMic().catch(function () {});
     track("briefed", { resume: startIdx > 0 });
-    startSession($("participant").value.trim(), plannedOrder, startIdx);
+    startSession(me.firstName || "", plannedOrder, startIdx);
   });
 
   /* ---------------- the session ---------------- */
@@ -336,7 +343,8 @@
     show(null);
     $("stage").hidden = false;
     if (params.get("debug") === "1") showLog(true);
-    loadCall(firstIdx || 0, false);
+    // the briefing's button is the go signal: the first call rings straight away
+    loadCall(firstIdx || 0, true);
   }
 
   // Load the prototype for call i. autoStart: start the call without waiting for the participant.
@@ -737,9 +745,15 @@
     if (callIdx + 1 >= queue.length) {
       log.sessionEndedAt = new Date().toISOString();
       event("session", "All calls complete");
+      track("calls_done");
+      saveLog();
+      if (hasSurvey()) {
+        showBreak("All calls complete", "Next, a few short questions.", true);
+        setTimeout(function () { $("break").hidden = true; $("stage").hidden = true; $("stage").src = "about:blank"; showSurvey(null); }, 2500);
+        return;
+      }
       track("done");
       showBreak("All calls complete", "Thank you for taking part. You can close this tab.", true);
-      saveLog();
       if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
       return;
     }
@@ -791,6 +805,224 @@
       breakLeft = 0; // the participant asked for it: start now
       breakTick();
     }
+  });
+
+  /* ---------------- survey (after the last call) ---------------- */
+  // Open questions can be typed or spoken. Speaking records the audio (uploaded to the server when the
+  // participant stops) and, where the browser supports it, transcribes live into the text box so they
+  // can see and fix what was heard. Answers save as they go, so a refresh or a dropped connection
+  // doesn't lose them.
+
+  var SURVEY = CFG.survey || {};
+  var answers = {}, saveTimer = 0, rec = null;
+  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+  function hasSurvey() { return !!(SURVEY.questions && SURVEY.questions.length); }
+
+  function h(tag, attrs, kids) {
+    var e = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === "text") e.textContent = attrs[k];
+      else if (k === "class") e.className = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    });
+    (kids || []).forEach(function (k) { if (k != null) e.appendChild(typeof k === "string" ? document.createTextNode(k) : k); });
+    return e;
+  }
+  function answer(id) { return answers[id] || (answers[id] = { text: "", value: null, recordings: [], dictated: false, typed: false }); }
+
+  function showSurvey(saved) {
+    answers = saved || answers || {};
+    $("stage").hidden = true;
+    $("survey-title").textContent = SURVEY.title || "A few questions";
+    $("survey-intro").textContent = SURVEY.intro || "";
+    var box = $("survey-questions");
+    box.innerHTML = "";
+    SURVEY.questions.forEach(function (q, i) { box.appendChild(renderQuestion(q, i)); });
+    show("survey");
+    track("survey_start", { resumed: !!saved });
+    window.scrollTo(0, 0);
+  }
+
+  function renderQuestion(q, i) {
+    var a = answer(q.id);
+    var id = "q-" + q.id;
+    var head = h("legend", { class: "q-text" }, [(i + 1) + ". " + q.text, q.required ? null : h("span", { class: "q-opt", text: " (optional)" })]);
+    var wrap = h("fieldset", { class: "q", id: id }, [head]);
+
+    if (q.type === "scale" || q.type === "choice") {
+      var opts = q.type === "scale" ? range(q.min || 1, q.max || 5).map(String) : q.options || [];
+      var row = h("div", { class: q.type === "scale" ? "q-scale" : "q-choice" });
+      opts.forEach(function (o) {
+        var input = h("input", { type: "radio", name: id, value: o });
+        if (String(a.value) === o) input.checked = true;
+        input.addEventListener("change", function () { a.value = q.type === "scale" ? Number(o) : o; queueSave(); });
+        row.appendChild(h("label", { class: "q-opt-btn" }, [input, h("span", { text: o })]));
+      });
+      wrap.appendChild(row);
+      if (q.type === "scale" && q.labels) {
+        wrap.appendChild(h("div", { class: "q-ends" }, [h("span", { text: q.labels[0] }), h("span", { text: q.labels[1] })]));
+      }
+      return wrap;
+    }
+
+    // open question: text box + speak
+    var ta = h("textarea", { rows: "3", "aria-labelledby": id + "-l", placeholder: "Type here, or press Speak" });
+    head.id = id + "-l";
+    ta.value = a.text || "";
+    ta.addEventListener("input", function () {
+      a.text = ta.value;
+      if (!rec || rec.q !== q.id) a.typed = true;
+      queueSave();
+    });
+    var btn = h("button", { type: "button", class: "btn btn-secondary q-speak", "aria-pressed": "false" }, [micIcon(), h("span", { text: "Speak" })]);
+    var status = h("span", { class: "field-note q-status", role: "status" });
+    if (a.recordings.length) status.textContent = recSaved(a);
+    btn.addEventListener("click", function () {
+      if (rec && rec.q === q.id) stopRecording();
+      else startRecording(q, ta, btn, status);
+    });
+    wrap.appendChild(ta);
+    wrap.appendChild(h("div", { class: "q-tools" }, [btn, status]));
+    return wrap;
+  }
+
+  function range(a, b) { var out = []; for (var x = a; x <= b; x++) out.push(x); return out; }
+  function recSaved(a) { return a.recordings.length === 1 ? "Recording saved." : a.recordings.length + " recordings saved."; }
+  function micIcon() {
+    var s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("aria-hidden", "true");
+    s.innerHTML = '<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/>';
+    return s;
+  }
+
+  function startRecording(q, ta, btn, status) {
+    if (rec) stopRecording();
+    var a = answer(q.id);
+    openMic().then(function (stream) {
+      var types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
+      var type = window.MediaRecorder && MediaRecorder.isTypeSupported ? types.filter(function (t) { return MediaRecorder.isTypeSupported(t); })[0] : "";
+      var mr = new MediaRecorder(new MediaStream([stream.getAudioTracks()[0].clone()]), type ? { mimeType: type } : undefined);
+      var chunks = [];
+      mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec = { q: q.id, mr: mr, sr: null, started: Date.now(), timer: 0, btn: btn, status: status };
+      var me2 = rec;
+      mr.onstop = function () {
+        mr.stream.getTracks().forEach(function (t) { t.stop(); });
+        var blob = new Blob(chunks, { type: mr.mimeType || type || "audio/webm" });
+        if (!blob.size) return;
+        status.textContent = "Saving recording…";
+        upload(q.id, blob).then(function (file) {
+          a.recordings.push(file);
+          status.textContent = recSaved(a);
+          track("survey_audio", { q: q.id, ms: Date.now() - me2.started, bytes: blob.size });
+          queueSave(true);
+        }).catch(function () { status.textContent = "Couldn’t save the recording. Your text is still saved."; });
+      };
+      mr.start(1000);
+
+      // live transcription into the box, after whatever is already typed
+      if (Recognition) {
+        var base = ta.value ? ta.value.replace(/\s*$/, " ") : "", finals = "";
+        var sr = new Recognition();
+        sr.continuous = true; sr.interimResults = true; sr.lang = navigator.language || "en-US";
+        sr.onresult = function (e) {
+          var interim = "";
+          for (var i = e.resultIndex; i < e.results.length; i++) {
+            if (e.results[i].isFinal) finals += e.results[i][0].transcript.trim() + " ";
+            else interim += e.results[i][0].transcript;
+          }
+          ta.value = (base + finals + interim).replace(/\s+$/, interim ? "" : " ").trimStart();
+          a.text = ta.value.trim(); a.dictated = true;
+          queueSave();
+        };
+        // Chrome ends recognition after a pause; keep listening until they press Stop
+        sr.onend = function () { if (rec === me2) { try { sr.start(); } catch (err) {} } };
+        sr.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") { me2.sr = null; status.dataset.nodict = "1"; } };
+        try { sr.start(); rec.sr = sr; } catch (err) {}
+      }
+      btn.setAttribute("aria-pressed", "true");
+      btn.lastChild.textContent = "Stop";
+      (function tick() {
+        if (rec !== me2) return;
+        var sec = Math.round((Date.now() - me2.started) / 1000);
+        status.textContent = "Recording " + Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0") +
+          (Recognition && !status.dataset.nodict ? " · your words appear above" : " · the recording is saved when you stop");
+        if (sec >= 300) return stopRecording();   // 5 minutes per recording
+        me2.timer = setTimeout(tick, 500);
+      })();
+      track("survey_speak", { q: q.id, dictation: !!Recognition });
+    }).catch(function () {
+      status.textContent = "Couldn’t open your microphone. Allow it in the address bar, or type your answer.";
+    });
+  }
+
+  function stopRecording() {
+    var r = rec;
+    if (!r) return;
+    rec = null;
+    clearTimeout(r.timer);
+    if (r.sr) { r.sr.onend = null; try { r.sr.stop(); } catch (e) {} }
+    try { r.mr.stop(); } catch (e) {}
+    r.btn.setAttribute("aria-pressed", "false");
+    r.btn.lastChild.textContent = "Speak";
+  }
+
+  function upload(q, blob) {
+    return fetch("api/survey/audio?p=" + encodeURIComponent(me.code) + "&q=" + encodeURIComponent(q), {
+      method: "POST", headers: { "Content-Type": blob.type || "audio/webm" }, body: blob,
+    }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (d) { return d.file; });
+  }
+
+  function queueSave(now) {
+    $("survey-error").hidden = true;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { saveSurvey(false); }, now ? 0 : 800);
+  }
+  function saveSurvey(submit) {
+    clearTimeout(saveTimer);
+    return fetch("api/survey", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ p: me.code, answers: answers, submit: !!submit }), keepalive: !submit,
+    }).then(function (r) {
+      if (!r.ok) throw new Error();
+      $("survey-saved").textContent = submit ? "" : "Saved";
+    }).catch(function (e) {
+      $("survey-saved").textContent = "Not saved yet. Check your connection.";
+      if (submit) throw e;
+    });
+  }
+
+  $("survey-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    stopRecording();
+    var err = $("survey-error");
+    err.hidden = true;
+    var missing = SURVEY.questions.filter(function (q) {
+      var a = answers[q.id];
+      return q.required && !(a && (a.value != null || (a.text || "").trim() || a.recordings.length));
+    });
+    if (missing.length) {
+      err.textContent = "Please answer question " + missing.map(function (q) { return SURVEY.questions.indexOf(q) + 1; }).join(", ") + ".";
+      err.hidden = false;
+      $("q-" + missing[0].id).scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    $("survey-submit").disabled = true;
+    // give a recording that was just stopped a moment to upload
+    setTimeout(function () {
+      saveSurvey(true).then(function () {
+        track("survey_submit");
+        track("done");
+        flush(true);
+        if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
+        notice("Thank you", "You’ve completed the study. You can close this tab.");
+      }).catch(function () {
+        $("survey-submit").disabled = false;
+        err.textContent = "Couldn’t send your answers. Check your connection and try again.";
+        err.hidden = false;
+      });
+    }, 600);
   });
 
   /* ---------------- study events (sent to the server for the dashboard) ---------------- */

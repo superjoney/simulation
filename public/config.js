@@ -46,4 +46,24 @@ window.SIM_CONFIG = {
   // When true, the agent receives a silent note (no spoken reply) each time the participant
   // clicks a labelled control in the prototype, e.g. "The representative clicked: Context".
   sendNavigationContext: false,
+
+  // Questions after the last call. Placeholder wording: replace before the study.
+  // type "scale": pick a number (min..max, labels for the two ends)
+  // type "choice": pick one option
+  // type "open": type or speak an answer (spoken answers are transcribed live and the audio is kept)
+  // required: must be answered before submitting
+  survey: {
+    title: "A few questions about the tool",
+    intro: "Thinking about the two calls you just took. Type your answers, or press Speak and talk. Your answers save as you go.",
+    questions: [
+      { id: "ease", type: "scale", min: 1, max: 5, labels: ["Very difficult", "Very easy"], required: true,
+        text: "Overall, how easy was it to handle these calls with this tool?" },
+      { id: "compare", type: "choice", required: true,
+        text: "Compared with the system you use today, this tool was…",
+        options: ["Much worse", "A bit worse", "About the same", "A bit better", "Much better"] },
+      { id: "helped", type: "open", text: "What helped you most during the calls?" },
+      { id: "hindered", type: "open", text: "What got in your way, or what did you have to look for?" },
+      { id: "change", type: "open", text: "If you could change one thing about the tool, what would it be?" },
+    ],
+  },
 };

@@ -48,20 +48,29 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
 ## Running an unmoderated study
 
 1. Sign in at `/admin` with a name and password from `RESEARCHERS`.
-2. **Invites**: paste the participant emails and press **Add invites**. Each person gets a personal
-   link (`/?p=CODE`). **Download for mail merge (CSV)** gives `email, first_name, link, status` for
-   a mail merge.
+2. **Invites**: paste rows of `email, first name` straight from a spreadsheet (or upload a CSV) and
+   press **Add invites**. Each person gets a personal link (`/?p=CODE`), and their first name is used
+   in the call greeting, so they aren't asked for it. **Download for mail merge (CSV)** gives
+   `email, first_name, link, status` for a mail merge.
 3. For Slack or anyone without a personal link, share the **Shared link** (the site's home page).
-   Participants enter their email; anyone not on the invite list still takes part but is flagged.
-4. Participants see a welcome and consent screen, an audio check, a short briefing, then two calls.
-   Call order is counterbalanced automatically. If they refresh or come back later, they resume
-   where they left off; once finished, the link says the study is complete.
+   Participants enter their email and first name; anyone not on the invite list still takes part
+   but is flagged.
+4. Participants see one welcome screen (audio check and consent), a short briefing whose button rings
+   the first call, two calls, then the survey. Call order is counterbalanced automatically. If they
+   refresh or come back later, they resume where they left off (including half-finished survey
+   answers); once finished, the link says the study is complete.
 5. **Overview** shows the funnel, completion, pauses and per-customer medians (handle time, time to
    verify, holds, transfers). **Participants** lists everyone with filters; click a row for each
    call's metrics, the steps taken, the transcript and every event. Export CSV (one row per
    participant) or JSON (every event).
 
-6. **Behaviour** (per customer):
+6. **Survey**: questions are set in `public/config.js` (`survey`), as scale, choice or open questions.
+   Open questions can be typed or spoken: **Speak** records the answer (the audio is saved to the
+   server) and, in Chrome and Edge, transcribes it live into the text box so the participant can
+   fix it. The Survey tab shows each question's results, every answer with "typed" or "spoken", and
+   the recordings. Browser dictation uses the browser maker's speech service (Google for Chrome);
+   the saved recordings stay on this server.
+7. **Behaviour** (per customer):
    - *Anchor questions*: each caller says two lines word for word (see the scripts). The dashboard
      finds them in the transcript and times the participant's first reply, any hold, and the related
      playbook step. Each call gets an automatic outcome (answered without hold / held then answered /
@@ -72,24 +81,25 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
    - *Click quality*: rage clicks (3+ in a second in one spot) and dead clicks (nothing on the page
      changed within a second), with where they happened.
    - *Feature use*: which controls people used, in which area of the screen, and when first.
-7. **Baseline**: upload a CSV export from the current system (one row per call), map its columns
+8. **Baseline**: upload a CSV export from the current system (one row per call), map its columns
    (handle time, time to verify, holds, hold time, transferred, call type) and match its call types
    to the scenarios. The tab then compares the current system with the prototype, overall and per
    scenario. Times can be seconds, minutes, or `m:ss` / `h:mm:ss`.
 
-Data is stored in `SESSIONS_DIR`: `participants.json`, `events/<code>.jsonl` and `baseline.json`.
+Data is stored in `SESSIONS_DIR`: `participants.json` (including survey answers),
+`events/<code>.jsonl`, `audio/<code>/` (survey recordings) and `baseline.json`.
 
 ## Running a session
 
-1. The participant enters their name, clicks **Allow microphone**, picks their microphone and
-   speaker (the level bar and **Play test sound** confirm both), and presses **Start**. The
-   microphone stays open for the whole session, so the browser doesn't ask again between calls.
-2. The first customer's prototype opens on "No active call". The participant clicks
-   **Initiate call simulation** and the first agent calls in.
+1. On the welcome screen the participant clicks **Allow microphone**, picks their microphone and
+   speaker (the level bar and **Play test sound** confirm both), agrees to take part and presses
+   **Continue**. The microphone stays open for the whole session, so the browser doesn't ask again
+   between calls.
+2. The briefing's button opens the first customer's prototype and the call rings straight away.
 3. When the call ends, a card counts down 10 seconds, then the next customer's prototype loads and
    their call starts on its own. **Start now** skips the wait; **Pause next call** holds it (for
    wrap-up notes) until **Start next call** is pressed.
-4. After the last call the card says the session is complete.
+4. After the last call comes the survey; submitting it completes the study.
 5. The rocket logo in the prototype goes back to the start page (with a confirm during a call).
 
 **Study settings** (small link under Start) sets the call order, e.g. Ruth → Marcus or

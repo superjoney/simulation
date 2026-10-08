@@ -30,6 +30,7 @@
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
         <button role="tab" data-tab="behaviour" aria-selected="false">Behaviour</button>
+        <button role="tab" data-tab="survey" aria-selected="false">Survey</button>
         <button role="tab" data-tab="baseline" aria-selected="false">Baseline</button>
         <button role="tab" data-tab="participants" aria-selected="false">Participants</button>
         <button role="tab" data-tab="invites" aria-selected="false">Invites</button>
@@ -92,6 +93,12 @@
       </div>
     </section>
 
+    <!-- Survey -->
+    <section id="tab-survey" class="page" hidden>
+      <div class="filters"><span class="muted" id="sv-count"></span><input id="sv-search" type="search" placeholder="Search answers"></div>
+      <div id="sv-questions" class="sv"></div>
+    </section>
+
     <!-- Baseline -->
     <section id="tab-baseline" class="page" hidden>
       <div class="card" id="bl-upload-card">
@@ -133,9 +140,13 @@
       <div class="grid2">
         <div class="card">
           <div class="card-h"><h2>Invite participants</h2></div>
-          <p class="note">Paste email addresses, separated by commas, spaces or new lines. Each person gets their own link.</p>
-          <textarea id="invite-emails" rows="7" placeholder="ana@company.com, ben@company.com…"></textarea>
-          <div class="actions"><button id="invite-add" class="btn btn-primary" type="button">Add invites</button></div>
+          <p class="note">One person per line: email and first name, in either order (paste straight from a spreadsheet), or upload a CSV. The first name is used in the call greeting, so participants aren’t asked for it. Adding someone again with a name updates it.</p>
+          <textarea id="invite-emails" rows="7" placeholder="ana@company.com, Ana&#10;ben@company.com, Ben"></textarea>
+          <div class="actions">
+            <button id="invite-add" class="btn btn-primary" type="button">Add invites</button>
+            <label class="btn btn-secondary" for="invite-file">Upload CSV</label>
+            <input id="invite-file" type="file" accept=".csv,.tsv,.txt,text/csv" class="sr">
+          </div>
           <p id="invite-result" class="note" role="status"></p>
         </div>
         <div class="card">

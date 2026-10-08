@@ -101,7 +101,7 @@
   document.querySelectorAll(".tabs button").forEach(function (b) {
     b.addEventListener("click", function () {
       document.querySelectorAll(".tabs button").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
-      ["overview", "behaviour", "baseline", "participants", "invites"].forEach(function (t) { $("tab-" + t).hidden = t !== b.getAttribute("data-tab"); });
+      ["overview", "behaviour", "survey", "baseline", "participants", "invites"].forEach(function (t) { $("tab-" + t).hidden = t !== b.getAttribute("data-tab"); });
       if (b.getAttribute("data-tab") === "baseline") loadBaseline();
     });
   });
@@ -113,7 +113,7 @@
     return api("overview").then(function (d) {
       data = d;
       $("updated").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
-      renderOverview(); renderBehaviour(); renderPeople(); renderInvites();
+      renderOverview(); renderBehaviour(); renderSurvey(); renderPeople(); renderInvites();
       if (!$("tab-baseline").hidden) loadBaseline();
     }).catch(function () {});
   }
@@ -125,7 +125,7 @@
     var tiles = [
       ["Invited", t.invited, t.notListed ? t.notListed + " more not on the list" : ""],
       ["Started", t.started, t.invited ? pct(t.started / t.invited) + " of invited" : ""],
-      ["Completed", t.completed, "both calls finished"],
+      ["Completed", t.completed, "both calls and the survey"],
       ["Completion rate", pct(t.completionRate), "of those who started"],
       ["Paused before a call", t.pausedNext, t.medianPauseMs ? "median pause " + dur(t.medianPauseMs) : ""],
     ];
@@ -256,6 +256,69 @@
     t.appendChild(tb);
     if (b.features.length > 40) t.appendChild(el("caption", { class: "note", style: "caption-side:bottom;text-align:left", text: "Top 40 of " + b.features.length + ". The JSON export has every click." }));
   }
+
+  /* ---------------- survey ---------------- */
+
+  var SURVEY = CFG.survey || { questions: [] }, svQuery = "";
+  function audioUrl(code, file) { return "/api/admin/audio?code=" + encodeURIComponent(code) + "&file=" + encodeURIComponent(file); }
+  function howTag(a) {
+    var spoken = a.dictated || a.recordings.length;
+    return spoken && a.typed ? "spoken + edited" : spoken ? "spoken" : "typed";
+  }
+  function players(code, a) {
+    if (!a.recordings.length) return null;
+    return el("div", { class: "sv-audio" }, a.recordings.map(function (f, i) {
+      // the audio loads only when asked for
+      var b = el("button", { class: "btn btn-secondary", type: "button", text: a.recordings.length > 1 ? "Play recording " + (i + 1) : "Play recording" });
+      b.addEventListener("click", function () {
+        var au = el("audio", { controls: "", preload: "auto", src: audioUrl(code, f) });
+        b.replaceWith(au); au.play().catch(function () {});
+      });
+      return b;
+    }).concat([el("a", { class: "btn btn-ghost", href: audioUrl(code, a.recordings[0]), download: "", text: "Download" })]));
+  }
+  function renderSurvey() {
+    var box = $("sv-questions"); box.innerHTML = "";
+    var people = data.participants.filter(function (s) { return s.survey && s.survey.answers; });
+    var submitted = people.filter(function (s) { return s.survey.submittedAt; }).length;
+    $("sv-count").textContent = submitted + " submitted" + (people.length > submitted ? " · " + (people.length - submitted) + " in progress" : "");
+    var q = svQuery.toLowerCase();
+    if (!SURVEY.questions.length) { box.appendChild(el("div", { class: "card" }, [el("p", { class: "muted", text: "No survey questions are set up (public/config.js)." })])); return; }
+    SURVEY.questions.forEach(function (qq, i) {
+      var rows = people.map(function (s) { return { s: s, a: s.survey.answers[qq.id] }; })
+        .filter(function (r) { return r.a && (r.a.value != null || (r.a.text || "").trim() || r.a.recordings.length); });
+      var card = el("div", { class: "card" }, [el("div", { class: "card-h" }, [el("h2", { text: (i + 1) + ". " + qq.text }), el("span", { class: "muted", text: rows.length + " answer" + (rows.length === 1 ? "" : "s") })])]);
+      if (qq.type === "scale" || qq.type === "choice") {
+        var opts = qq.type === "scale" ? [] : qq.options.slice();
+        if (qq.type === "scale") for (var v = qq.min || 1; v <= (qq.max || 5); v++) opts.push(String(v));
+        var counts = {}; rows.forEach(function (r) { counts[String(r.a.value)] = (counts[String(r.a.value)] || 0) + 1; });
+        var max = Math.max.apply(null, opts.map(function (o) { return counts[o] || 0; }).concat([1]));
+        card.appendChild(el("div", { class: "sv-dist" }, opts.map(function (o, k) {
+          var lbl = o + (qq.type === "scale" && qq.labels ? (k === 0 ? " · " + qq.labels[0] : k === opts.length - 1 ? " · " + qq.labels[1] : "") : "");
+          return el("div", { class: "sv-row" }, [el("span", { text: lbl }), el("div", { class: "fn-bar" }, [el("i", { style: "width:" + (100 * (counts[o] || 0) / max) + "%" })]),
+            el("span", { class: "fn-n", text: (counts[o] || 0) + (rows.length ? " · " + Math.round(100 * (counts[o] || 0) / rows.length) + "%" : "") })]);
+        })));
+        if (qq.type === "scale" && rows.length) {
+          var mean = rows.reduce(function (n, r) { return n + Number(r.a.value); }, 0) / rows.length;
+          card.appendChild(el("p", { class: "note", text: "Average " + (Math.round(mean * 10) / 10) + " of " + (qq.max || 5) }));
+        }
+      } else {
+        var shown = rows.filter(function (r) { return !q || ((r.a.text || "") + " " + r.s.email + " " + r.s.firstName).toLowerCase().indexOf(q) >= 0; });
+        var spoken = rows.filter(function (r) { return r.a.dictated || r.a.recordings.length; }).length;
+        if (rows.length) card.appendChild(el("p", { class: "note", style: "margin:-6px 0 12px", text: spoken + " of " + rows.length + " spoken" }));
+        card.appendChild(el("ul", { class: "sv-answers" }, shown.length ? shown.map(function (r) {
+          return el("li", {}, [
+            el("div", { class: "sv-who" }, [el("a", { href: "#", text: r.s.firstName ? r.s.firstName + " · " + r.s.email : r.s.email,
+              onclick: function (e) { e.preventDefault(); openDetail(r.s.code); } }), el("span", { class: "pill", text: howTag(r.a) })]),
+            r.a.text ? el("div", { class: "sv-text", text: r.a.text }) : el("div", { class: "sv-text muted", text: "(no text: listen to the recording)" }),
+            players(r.s.code, r.a),
+          ]);
+        }) : [el("li", { class: "muted", text: rows.length ? "No answers match." : "No answers yet." })]));
+      }
+      box.appendChild(card);
+    });
+  }
+  $("sv-search").addEventListener("input", function () { svQuery = this.value; renderSurvey(); });
 
   /* ---------------- baseline ---------------- */
 
@@ -496,6 +559,21 @@
       b.appendChild(card);
     });
 
+    if (s.survey && s.survey.answers) {
+      var sc = el("div", { class: "card" }, [el("div", { class: "card-h" }, [el("h2", { text: "Survey" }),
+        el("span", { class: "pill " + (s.survey.submittedAt ? "ok" : "warn"), text: s.survey.submittedAt ? "Submitted " + when(s.survey.submittedAt) : "Not submitted" })])]);
+      var list = el("ul", { class: "sv-answers" });
+      (SURVEY.questions || []).forEach(function (qq, i) {
+        var a = s.survey.answers[qq.id];
+        var has = a && (a.value != null || (a.text || "").trim() || a.recordings.length);
+        list.appendChild(el("li", {}, [el("div", { class: "sv-who" }, [(i + 1) + ". " + qq.text, has && qq.type === "open" ? el("span", { class: "pill", text: howTag(a) }) : null]),
+          el("div", { class: "sv-text" + (has ? "" : " muted"), text: !has ? "No answer" : a.value != null ? String(a.value) : a.text || "(recording only)" }),
+          has ? players(s.code, a) : null]));
+      });
+      sc.appendChild(list);
+      b.appendChild(sc);
+    }
+
     var t0 = events.length ? Date.parse(events[0].at || events[0].rt) : 0;
     var shown = events.filter(function (e) { return e.type !== "transcript"; });
     b.appendChild(el("div", { class: "card" }, [
@@ -546,14 +624,22 @@
   $("invite-add").addEventListener("click", function () {
     var text = $("invite-emails").value;
     if (!text.trim()) return;
+    sendInvites(text);
+  });
+  $("invite-file").addEventListener("change", function () {
+    var f = this.files[0]; this.value = "";
+    if (f) f.text().then(sendInvites);
+  });
+  function sendInvites(text) {
     api("invite", { method: "POST", body: JSON.stringify({ emails: text }) }).then(function (r) {
-      var msg = r.added.length + " added";
+      var named = r.added.filter(function (x) { return x.firstName; }).length;
+      var msg = r.added.length + " added" + (r.added.length ? " (" + named + " with a first name)" : "") + (r.updated && r.updated.length ? " · " + r.updated.length + " names updated" : "");
       if (r.skipped.length) msg += " · skipped " + r.skipped.length + ": " + r.skipped.map(function (x) { return x.email + " (" + x.reason + ")"; }).join(", ");
       $("invite-result").textContent = msg;
       $("invite-emails").value = "";
       load();
     }).catch(function (e) { $("invite-result").textContent = "Couldn’t add invites: " + e.message; });
-  });
+  }
 
   function linkRows() {
     return data.participants.slice().sort(function (a, b) { return a.email < b.email ? -1 : 1; });
@@ -573,12 +659,13 @@
     $("invite-count").textContent = rows.filter(function (s) { return s.listed; }).length + " invited" +
       (rows.some(function (s) { return !s.listed; }) ? " · " + rows.filter(function (s) { return !s.listed; }).length + " not on the list" : "");
     var t = $("links"); t.innerHTML = "";
-    t.appendChild(el("thead", {}, [el("tr", {}, ["Email", "Personal link", "Status", ""].map(function (h) { return el("th", { text: h }); }))]));
+    t.appendChild(el("thead", {}, [el("tr", {}, ["Email", "First name", "Personal link", "Status", ""].map(function (h) { return el("th", { text: h }); }))]));
     var tb = el("tbody");
-    if (!rows.length) tb.appendChild(el("tr", {}, [el("td", { class: "empty", colspan: "4", text: "No participants yet. Add invites above." })]));
+    if (!rows.length) tb.appendChild(el("tr", {}, [el("td", { class: "empty", colspan: "5", text: "No participants yet. Add invites above." })]));
     rows.forEach(function (s) {
       tb.appendChild(el("tr", {}, [
         el("td", {}, [s.email, s.listed ? null : el("span", { class: "sub2", text: "not on invite list" })]),
+        el("td", { class: s.firstName ? "" : "muted", text: s.firstName || "missing" }),
         el("td", {}, [el("div", { class: "link-cell" }, [el("code", { text: "/?p=" + s.code }),
           el("button", { class: "btn btn-ghost", type: "button", text: "Copy", onclick: function () { copy(linkFor(s.code), "Link copied"); } })])]),
         el("td", {}, [stagePill(s)]),

@@ -84,9 +84,41 @@ async function conversationToken(req, res) {
 function progressOf(p) {
   const s = metrics.summarize(p, store.readEvents(p.code));
   return {
-    consented: s.consented, audioReady: s.audioReady, briefed: s.briefed, done: s.done,
+    consented: s.consented, audioReady: s.audioReady, briefed: s.briefed, done: s.done, callsDone: s.callsDone,
     completedCalls: s.calls.filter((c) => c.completed).map((c) => c.n),
   };
+}
+const surveyView = (p) => (p.survey && p.survey.answers) || null;
+
+// Survey audio: one file per recording, in <data>/audio/<code>/
+const AUDIO_DIR = path.join(SESSIONS_DIR, "audio");
+const AUDIO_TYPES = { "audio/webm": ".webm", "audio/mp4": ".m4a", "audio/ogg": ".ogg", "audio/wav": ".wav", "audio/mpeg": ".mp3" };
+const AUDIO_MIME = { ".webm": "audio/webm", ".m4a": "audio/mp4", ".ogg": "audio/ogg", ".wav": "audio/wav", ".mp3": "audio/mpeg" };
+const FILE_RE = /^[a-z0-9_-]{1,40}-\d{13}\.(webm|m4a|ogg|wav|mp3)$/;
+
+function readRaw(req, limit) {
+  return new Promise((resolve, reject) => {
+    const parts = []; let n = 0;
+    req.on("data", (c) => { n += c.length; if (n > limit) { reject(new Error("too_large")); req.destroy(); } else parts.push(c); });
+    req.on("end", () => resolve(Buffer.concat(parts)));
+    req.on("error", reject);
+  });
+}
+
+function cleanAnswers(raw, code) {
+  const out = {};
+  Object.keys(raw && typeof raw === "object" ? raw : {}).slice(0, 40).forEach((id) => {
+    if (!/^[a-z0-9_-]{1,40}$/i.test(id)) return;
+    const a = raw[id] || {};
+    const value = typeof a.value === "number" || typeof a.value === "string" ? String(a.value).slice(0, 200) : null;
+    out[id] = {
+      text: String(a.text || "").slice(0, 10000),
+      value: value == null ? null : typeof a.value === "number" ? Number(value) : value,
+      recordings: (Array.isArray(a.recordings) ? a.recordings : []).filter((f) => FILE_RE.test(f) && fs.existsSync(path.join(AUDIO_DIR, code, f))).slice(0, 20),
+      dictated: !!a.dictated, typed: !!a.typed,
+    };
+  });
+  return out;
 }
 const publicView = (p) => ({ code: p.code, firstName: p.firstName || "", listed: !!p.listed, orderIndex: p.orderIndex });
 
@@ -94,7 +126,20 @@ async function participantApi(req, res, pathname, query) {
   if (pathname === "/api/participant" && req.method === "GET") {
     const p = store.byCode(query.get("p"));
     if (!p) return sendJson(res, 404, { error: "unknown_code" });
-    return sendJson(res, 200, { participant: publicView(p), progress: progressOf(p) });
+    return sendJson(res, 200, { participant: publicView(p), progress: progressOf(p), survey: surveyView(p) });
+  }
+  if (pathname === "/api/survey/audio" && req.method === "POST") {
+    const p = store.byCode(query.get("p"));
+    const q = String(query.get("q") || "");
+    if (!p || !/^[a-z0-9_-]{1,40}$/i.test(q)) return sendJson(res, 404, { error: "unknown" });
+    const ext = AUDIO_TYPES[String(req.headers["content-type"] || "").split(";")[0].trim()] || ".webm";
+    const buf = await readRaw(req, 30e6).catch(() => null);
+    if (!buf || !buf.length) return sendJson(res, 413, { error: "too_large_or_empty" });
+    const dir = path.join(AUDIO_DIR, p.code);
+    fs.mkdirSync(dir, { recursive: true });
+    const file = q.toLowerCase() + "-" + Date.now() + ext;
+    fs.writeFileSync(path.join(dir, file), buf);
+    return sendJson(res, 200, { file });
   }
   const body = await readBody(req, 1e6).catch((e) => ({ __err: e.message }));
   if (body.__err) return sendJson(res, 400, { error: body.__err });
@@ -102,7 +147,21 @@ async function participantApi(req, res, pathname, query) {
   if (pathname === "/api/participant/identify" && req.method === "POST") {
     const p = store.identify(body.email);
     if (!p) return sendJson(res, 400, { error: "invalid_email" });
-    return sendJson(res, 200, { participant: publicView(p), progress: progressOf(p) });
+    return sendJson(res, 200, { participant: publicView(p), progress: progressOf(p), survey: surveyView(p) });
+  }
+  if (pathname === "/api/survey" && req.method === "POST") {
+    const p = store.byCode(body.p);
+    if (!p) return sendJson(res, 404, { error: "unknown_code" });
+    const prev = p.survey || {};
+    const survey = { answers: cleanAnswers(body.answers, p.code), startedAt: prev.startedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(), submittedAt: prev.submittedAt || (body.submit ? new Date().toISOString() : null) };
+    // a recording can finish uploading just after submit: keep any file the earlier save had
+    Object.keys(prev.answers || {}).forEach((id) => {
+      const a = survey.answers[id], b = prev.answers[id];
+      if (a && b) a.recordings = Array.from(new Set(b.recordings.concat(a.recordings)));
+    });
+    store.update(p.code, { survey });
+    return sendJson(res, 200, { ok: true });
   }
   if (pathname === "/api/participant/update" && req.method === "POST") {
     const p = store.byCode(body.p);
@@ -159,13 +218,34 @@ async function adminApi(req, res, pathname, query) {
     const body = await readBody(req, 1e6).catch(() => ({}));
     const r = store.invite(body.emails);
     console.log(`${me} invited ${r.added.length} participant(s)`);
-    return sendJson(res, 200, { added: r.added.map((p) => ({ code: p.code, email: p.email })), skipped: r.skipped });
+    const brief = (p) => ({ code: p.code, email: p.email, firstName: p.firstName || "" });
+    return sendJson(res, 200, { added: r.added.map(brief), updated: r.updated.map(brief), skipped: r.skipped });
   }
   if (pathname === "/api/admin/remove" && req.method === "POST") {
     const body = await readBody(req, 1e4).catch(() => ({}));
     const ok = store.remove(body.code);
     if (ok) console.log(`${me} removed participant ${body.code}`);
     return sendJson(res, ok ? 200 : 404, { ok });
+  }
+  if (pathname === "/api/admin/audio" && req.method === "GET") {
+    const p = store.byCode(query.get("code"));
+    const file = String(query.get("file") || "");
+    if (!p || !FILE_RE.test(file)) return sendJson(res, 404, { error: "not_found" });
+    const full = path.join(AUDIO_DIR, p.code, file);
+    let stat;
+    try { stat = fs.statSync(full); } catch { return sendJson(res, 404, { error: "not_found" }); }
+    const type = AUDIO_MIME[path.extname(file)] || "application/octet-stream";
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || "");
+    if (range && (range[1] || range[2])) {
+      const start = range[1] ? Number(range[1]) : Math.max(0, stat.size - Number(range[2]));
+      const end = range[1] && range[2] ? Math.min(Number(range[2]), stat.size - 1) : stat.size - 1;
+      if (start > end || start >= stat.size) { res.writeHead(416, { "Content-Range": `bytes */${stat.size}` }); return res.end(); }
+      res.writeHead(206, { "Content-Type": type, "Content-Range": `bytes ${start}-${end}/${stat.size}`, "Accept-Ranges": "bytes", "Content-Length": end - start + 1, "Cache-Control": "private, no-store" });
+      return fs.createReadStream(full, { start, end }).pipe(res);
+    }
+    res.writeHead(200, { "Content-Type": type, "Content-Length": stat.size, "Accept-Ranges": "bytes", "Cache-Control": "private, no-store",
+      "Content-Disposition": `inline; filename="${p.code}-${file}"` });
+    return fs.createReadStream(full).pipe(res);
   }
   if (pathname === "/api/admin/study" && req.method === "GET") return sendJson(res, 200, study.definitions());
   // a researcher's call on how an anchor question went (overrides the automatic guess)
@@ -239,7 +319,7 @@ function listSessions(req, res) {
     crypto.timingSafeEqual(Buffer.from(key), Buffer.from(RESEARCHER_KEY)));
   if (!ok) return sendJson(res, 403, { error: "forbidden" });
   fs.readdir(SESSIONS_DIR, (err, names) => {
-    const logs = (err ? [] : names.filter((n) => n.endsWith(".json") && n !== "participants.json").sort())
+    const logs = (err ? [] : names.filter((n) => n.endsWith(".json") && n !== "participants.json" && n !== "baseline.json").sort())
       .map((n) => { try { return JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, n), "utf8")); } catch { return null; } })
       .filter(Boolean);
     res.writeHead(200, {
@@ -282,7 +362,7 @@ http
         return sendJson(res, 200, { tokenAuth: Boolean(API_KEY), label: SIM_LABEL });
       }
       if (pathname === "/api/conversation-token" && req.method === "GET") return conversationToken(req, res);
-      if (pathname.startsWith("/api/participant") || pathname === "/api/events") return await participantApi(req, res, pathname, url.searchParams);
+      if (pathname.startsWith("/api/participant") || pathname === "/api/events" || pathname.startsWith("/api/survey")) return await participantApi(req, res, pathname, url.searchParams);
       if (pathname.startsWith("/api/admin/")) return await adminApi(req, res, pathname, url.searchParams);
       if (pathname === "/api/sessions" && req.method === "POST") return saveSession(req, res);
       if (pathname === "/api/sessions" && req.method === "GET") return listSessions(req, res);

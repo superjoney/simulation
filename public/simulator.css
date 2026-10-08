@@ -139,3 +139,28 @@ body { background: var(--bg); color: var(--text); }
 .consent p { margin: 0; }
 .check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text); font-weight: 500; cursor: pointer; }
 .check input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--dark); flex: none; }
+
+/* ---------- survey ---------- */
+.survey { align-items: flex-start; }
+.survey-card { max-width: 640px; }
+#survey-questions { display: flex; flex-direction: column; gap: 22px; }
+.q { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.q-text { padding: 0; font-size: 15px; font-weight: 500; line-height: 1.45; }
+.q-opt { color: var(--subtle); font-weight: 400; font-size: 13px; }
+.q textarea { font: inherit; font-size: 15px; line-height: 1.5; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; resize: vertical; width: 100%; min-height: 84px; }
+.q textarea:focus { outline: 2px solid var(--dark); outline-offset: 1px; }
+.q-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.q-speak { display: inline-flex; align-items: center; gap: 6px; }
+.q-speak svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.q-speak[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+.q-status { font-variant-numeric: tabular-nums; }
+.q-scale { display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 6px; }
+.q-choice { display: flex; flex-direction: column; gap: 6px; }
+.q-opt-btn { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.q-choice .q-opt-btn { justify-content: flex-start; }
+.q-opt-btn input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.q-opt-btn span { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; text-align: center; background: var(--surface); }
+.q-choice .q-opt-btn span { text-align: left; }
+.q-opt-btn input:checked + span { background: var(--dark); border-color: var(--dark); color: #fff; }
+.q-opt-btn input:focus-visible + span { outline: 2px solid var(--dark); outline-offset: 2px; }
+.q-ends { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--subtle); margin-top: -4px; }

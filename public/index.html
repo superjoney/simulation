@@ -7,13 +7,13 @@
   <link rel="stylesheet" href="simulator.css">
 </head>
 <body>
-  <!-- 1 · Welcome + consent (asks for the email only on the shared link) -->
+  <!-- 1 · Welcome, audio check and consent (asks for email and name only when we don't have them) -->
   <main id="intro" class="setup" hidden>
     <form id="intro-form" class="setup-card">
-      <h1>Welcome to the call center study</h1>
-      <p class="setup-sub">Thanks for taking part. You’ll play a client relations agent and take two short customer calls using a new tool we’re designing. It takes about 20–25 minutes.</p>
+      <h1 id="intro-title">Welcome to the call center study</h1>
+      <p class="setup-sub" id="intro-sub">Thanks for taking part. You’ll play a client relations agent and take two short customer calls using a new tool we’re designing, then answer a few questions. It takes about 20–25 minutes.</p>
 
-      <div class="needs">
+      <div class="needs" id="intro-needs">
         <strong>You’ll need</strong>
         <ul>
           <li>Chrome or Edge on a laptop or desktop</li>
@@ -26,30 +26,13 @@
         <span>Work email</span>
         <input id="email" type="email" autocomplete="email" placeholder="The email your invitation was sent to">
       </label>
-
-      <div class="consent">
-        <p>We’ll record your voice during the calls, what you click in the tool, and your answers. Recordings are used only for this research and are seen only by the research team. <em>(Placeholder: final consent wording to come from research operations.)</em></p>
-        <label class="check"><input type="checkbox" id="consent"> <span>I agree to take part and to be recorded.</span></label>
-      </div>
-
-      <button type="submit" class="btn btn-primary">Continue</button>
-      <p id="intro-error" class="setup-error" role="alert" hidden></p>
-    </form>
-  </main>
-
-  <!-- 2 · Audio check -->
-  <main id="setup" class="setup" hidden>
-    <form id="setup-form" class="setup-card">
-      <h1>Check your audio</h1>
-      <p class="setup-sub">Enter your first name and make sure your microphone is connected and the sound is on.</p>
-
-      <label class="field">
+      <label class="field" id="name-field" hidden>
         <span>Your first name</span>
-        <input id="participant" name="participant" autocomplete="given-name" required>
+        <input id="participant" name="participant" autocomplete="given-name">
       </label>
 
       <fieldset class="field devices">
-        <legend>Call audio</legend>
+        <legend>Check your audio</legend>
         <button type="button" id="audio-allow" class="btn btn-secondary">Allow microphone</button>
         <p id="audio-msg" class="field-note">Your browser will ask for permission to use your microphone.</p>
 
@@ -74,8 +57,13 @@
         </div>
       </fieldset>
 
+      <div class="consent" id="consent-box">
+        <p>We’ll record your voice during the calls, what you click in the tool, and your answers. Recordings are used only for this research and are seen only by the research team. <em>(Placeholder: final consent wording to come from research operations.)</em></p>
+        <label class="check"><input type="checkbox" id="consent"> <span>I agree to take part and to be recorded.</span></label>
+      </div>
+
       <button type="submit" id="start-btn" class="btn btn-primary">Continue</button>
-      <p id="setup-error" class="setup-error" role="alert" hidden></p>
+      <p id="intro-error" class="setup-error" role="alert" hidden></p>
 
       <!-- Researcher settings: deliberately quiet -->
       <details class="study">
@@ -89,7 +77,7 @@
     </form>
   </main>
 
-  <!-- 3 · Briefing (also the "welcome back" screen when resuming) -->
+  <!-- 2 · Briefing (also the "welcome back" screen when resuming); its button rings the first call -->
   <main id="brief" class="setup" hidden>
     <div class="setup-card">
       <h1 id="brief-title">Your role</h1>
@@ -100,11 +88,24 @@
           <li>Talk to them the way you would on a real call. They’ll respond naturally.</li>
           <li>Use the call controls at the top to mute, hold, transfer or end the call.</li>
           <li>After each call there’s a short break. You can pause it if you need more time.</li>
+          <li>After the last call, a few short questions. You can type or speak your answers.</li>
         </ul>
-        <p class="setup-sub">There’s no right or wrong. We’re testing the tool, not you.</p>
+        <p class="setup-sub">There’s no right or wrong. We’re testing the tool, not you. The first call rings as soon as you press the button.</p>
       </div>
       <button type="button" id="brief-go" class="btn btn-primary">I’m ready, start the first call</button>
     </div>
+  </main>
+
+  <!-- 3 · Survey, after the last call -->
+  <main id="survey" class="setup survey" hidden>
+    <form id="survey-form" class="setup-card survey-card" novalidate>
+      <h1 id="survey-title"></h1>
+      <p class="setup-sub" id="survey-intro"></p>
+      <div id="survey-questions"></div>
+      <button type="submit" id="survey-submit" class="btn btn-primary">Submit answers</button>
+      <p id="survey-error" class="setup-error" role="alert" hidden></p>
+      <p class="field-note" id="survey-saved" role="status"></p>
+    </form>
   </main>
 
   <!-- Messages: invalid link, already completed, opened as a file -->
