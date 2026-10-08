@@ -34,6 +34,9 @@ window.SIM_CONFIG = {
   callsPerSession: 2,
   breakSeconds: 10,
 
+  // Seconds the phone rings before the caller connects (it keeps ringing until they do). 0 = no ring.
+  ringSeconds: 3,
+
   // The element in each prototype that starts the call when clicked.
   startSelector: "#tm-start",
 

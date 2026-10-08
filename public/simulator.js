@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-08.4"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-08.5"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -357,6 +357,47 @@
     $("call-status").textContent = "Ready";
   }
 
+  /* ---------------- ring tone ----------------
+     A phone ring (two short 440+480 Hz bursts, then a pause) from the moment a call comes in until the
+     caller connects, on the speaker chosen at setup. */
+  var ring = null;
+  function startRing() {
+    stopRing();
+    if (!window.AudioContext) return;
+    var ctx = new AudioContext();
+    if (ctx.resume) ctx.resume().catch(function () {});
+    if (devices.output && ctx.setSinkId) ctx.setSinkId(devices.output).catch(function () {});
+    var env = ctx.createGain(), vol = ctx.createGain();
+    env.gain.value = 0;
+    vol.gain.value = 0.12;
+    env.connect(vol).connect(ctx.destination);
+    [440, 480].forEach(function (f) {
+      var o = ctx.createOscillator();
+      o.frequency.value = f;
+      o.connect(env);
+      o.start();
+    });
+    var t = ctx.currentTime + 0.05;
+    function burst(at) {
+      env.gain.setValueAtTime(0, at);
+      env.gain.linearRampToValueAtTime(1, at + 0.02);
+      env.gain.setValueAtTime(1, at + 0.4);
+      env.gain.linearRampToValueAtTime(0, at + 0.42);
+    }
+    // schedule rings 2.5s apart, a few seconds ahead at a time
+    ring = { ctx: ctx, next: t, timer: 0 };
+    (function schedule() {
+      while (ring && ring.next < ctx.currentTime + 6) { burst(ring.next); burst(ring.next + 0.6); ring.next += 2.5; }
+      if (ring) ring.timer = setTimeout(schedule, 2000);
+    })();
+  }
+  function stopRing() {
+    if (!ring) return;
+    clearTimeout(ring.timer);
+    ring.ctx.close();
+    ring = null;
+  }
+
   function startCall() {
     if (!call || callState === "connecting" || callState === "connected" || callState === "ended") return;
     var client = queue[callIdx];
@@ -365,7 +406,11 @@
     event("call", "Call " + call.n + " started · " + client.name);
 
     var mine = call;
-    getSessionOptions(client).then(function (opts) {
+    startRing();
+    var minRing = (CFG.ringSeconds == null ? 3 : CFG.ringSeconds) * 1000;
+    new Promise(function (r) { setTimeout(r, minRing); }).then(function () {
+      return getSessionOptions(client);
+    }).then(function (opts) {
       if (mine !== call || callState !== "connecting") return null;
       opts.userId = log.participantId || undefined;
       if (devices.input) opts.inputDeviceId = devices.input;
@@ -373,6 +418,7 @@
       if (CFG.dynamicVariables && Object.keys(CFG.dynamicVariables).length) opts.dynamicVariables = CFG.dynamicVariables;
       opts.onConnect = function (p) {
         if (mine !== call || callState !== "connecting") return;
+        stopRing();
         call.conversationId = p && p.conversationId;
         call.connectedAt = new Date().toISOString();
         event("call", "Connected · conversation " + call.conversationId);
@@ -402,6 +448,7 @@
       }
     }).catch(function (err) {
       if (mine !== call) return;
+      stopRing();
       var msg = (err && err.message) || String(err);
       event("error", msg);
       setCallState("failed", /permission|NotAllowed/i.test(msg) ? "Microphone blocked" : "Couldn't connect");
@@ -429,6 +476,7 @@
 
   function finishCall(reason) {
     if (callState !== "connecting" && callState !== "connected") return;
+    stopRing();
     call.endedAt = new Date().toISOString();
     call.endReason = reason;
     event("call", "Call " + call.n + " ended (" + reason + ")");
