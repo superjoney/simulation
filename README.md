@@ -71,6 +71,7 @@ sent to ElevenLabs as `userId`, so the dashboard recordings can be filtered by i
 
 - `clients`: the customers, each with `agentId`, display name, phone and playbook.
 - `callsPerSession` (2) and `breakSeconds` (10).
+- `ringSeconds` (3): how long the phone rings before the caller connects; it keeps ringing until they do. `0` turns the ring off.
 - `connectionType`: `"webrtc"` (default) or `"websocket"`.
 - `dynamicVariables`: values for the agents' `{{variables}}`. Only add keys the agents define.
 - `sendNavigationContext`: when `true`, the agent gets a silent note each time the participant
