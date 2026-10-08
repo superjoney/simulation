@@ -29,6 +29,8 @@ Requires Node 18+. No `npm install` step. Use Chrome or Edge, and open the page 
 | `PORT` | `3000` | Server port. |
 | `SESSIONS_DIR` | `./sessions` | Where session logs are saved. Point it at a mounted volume when hosted. |
 | `SIM_LABEL` | none | Shows a badge (e.g. `TEST`) on every screen. Set it on test copies only. |
+| `RESEARCHERS` | none | Dashboard logins, e.g. `jenn:pass1, sam:pass2`. The dashboard at `/admin` is off when unset. |
+| `SESSION_SECRET` | derived | Optional extra secret for signing dashboard sign-ins. Changing it signs everyone out. |
 | `RESEARCHER_KEY` | none | Enables `GET /api/sessions?key=…`, which downloads every saved log. Off when unset. |
 
 ## Hosting on Railway
@@ -36,12 +38,30 @@ Requires Node 18+. No `npm install` step. Use Chrome or Edge, and open the page 
 `railway.json` sets the start command and health check; Railway supplies `PORT`.
 
 1. New Project → Deploy from GitHub repo → `superjoney/simulation` (branch `main`, or this branch).
-2. Variables: `RESEARCHER_KEY` (password for downloading logs), `SESSIONS_DIR=/data/sessions`, and
-   optionally `ELEVENLABS_API_KEY`.
+2. Variables: `RESEARCHERS` (dashboard logins), `SESSIONS_DIR=/data/sessions`, and optionally
+   `RESEARCHER_KEY` and `ELEVENLABS_API_KEY`.
 3. Attach a volume mounted at `/data`, so session logs survive redeploys.
 4. Settings → Networking → Generate Domain, and share that https link.
 
 Download every saved log as one JSON file at `https://<your-domain>/api/sessions?key=<RESEARCHER_KEY>`.
+
+## Running an unmoderated study
+
+1. Sign in at `/admin` with a name and password from `RESEARCHERS`.
+2. **Invites**: paste the participant emails and press **Add invites**. Each person gets a personal
+   link (`/?p=CODE`). **Download for mail merge (CSV)** gives `email, first_name, link, status` for
+   a mail merge.
+3. For Slack or anyone without a personal link, share the **Shared link** (the site's home page).
+   Participants enter their email; anyone not on the invite list still takes part but is flagged.
+4. Participants see a welcome and consent screen, an audio check, a short briefing, then two calls.
+   Call order is counterbalanced automatically. If they refresh or come back later, they resume
+   where they left off; once finished, the link says the study is complete.
+5. **Overview** shows the funnel, completion, pauses and per-customer medians (handle time, time to
+   verify, holds, transfers). **Participants** lists everyone with filters; click a row for each
+   call's metrics, the steps taken, the transcript and every event. Export CSV (one row per
+   participant) or JSON (every event).
+
+Data is stored in `SESSIONS_DIR`: `participants.json` and `events/<code>.jsonl`.
 
 ## Running a session
 
@@ -133,7 +153,9 @@ in the bottom-left corner that can be dragged anywhere.
 
 ## Files
 
-- `server.js`: static server, token endpoint, session log writer
+- `server.js`: static server, token endpoint, participant and event API, dashboard API
+- `lib/store.js`, `lib/metrics.js`, `lib/auth.js`: participant store, metrics, researcher sign-in
+- `public/admin/`: researcher dashboard
 - `public/index.html`, `simulator.js`, `simulator.css`: setup screen, call sequence, session log
 - `public/config.js`: customers, agents and session settings
 - `public/prototypes/`: generated per-customer prototypes and the call controls

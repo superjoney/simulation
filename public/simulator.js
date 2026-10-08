@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-08.8"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-09.1"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -22,6 +22,10 @@
   var callState = "idle";    // idle | connecting | connected | ended | failed
   var muted = false, onHold = false;
   var breakTimer = null, breakLeft = 0, breakPaused = false;
+
+  var me = null;             // the participant: { code, firstName, listed, orderIndex }
+  var progress = null;       // what they've already done: { consented, audioReady, briefed, done, completedCalls }
+  var orderOverridden = false;
 
   var CLIENTS = (CFG.clients || []).filter(function (c) { return c.agentId; });
   var BY_ID = {};
@@ -49,8 +53,8 @@
     o.textContent = key.split(",").map(function (id) { return BY_ID[id].name.split(" ")[0]; }).join(" → ");
     $("order").appendChild(o);
   });
-  if (params.get("order") && orders.indexOf(params.get("order")) >= 0) $("order").value = params.get("order");
-  if (params.get("participant")) $("participant").value = params.get("participant");
+  if (params.get("order") && orders.indexOf(params.get("order")) >= 0) { $("order").value = params.get("order"); orderOverridden = true; }
+  $("order").addEventListener("change", function () { orderOverridden = true; });
 
   var missing = (CFG.clients || []).filter(function (c) { return !c.agentId; }).map(function (c) { return c.name; });
   function studyInfo() {
@@ -63,11 +67,56 @@
   // Opened straight from the folder (file://), the browser walls the prototype off from the simulator:
   // the call controls double up and the microphone prompts on every request. It needs the server.
   var fromFile = location.protocol === "file:";
-  if (fromFile) {
-    $("setup-error").textContent = "This page was opened as a file. In the project folder run “npm start”, then open http://localhost:3000.";
-    $("setup-error").hidden = false;
-    $("start-btn").disabled = true;
+
+  /* ---------------- who is this: invite link (?p=CODE) or shared link + email ---------------- */
+
+  function show(id) { ["intro", "setup", "brief", "notice"].forEach(function (x) { $(x).hidden = x !== id; }); }
+  function notice(title, body) { $("notice-title").textContent = title; $("notice-body").textContent = body; show("notice"); }
+
+  function boot() {
+    if (fromFile) return notice("Open the study through its link", "This page was opened as a file. In the project folder run “npm start”, then open http://localhost:3000.");
+    var code = params.get("p");
+    if (!code) { $("email-field").hidden = false; $("email").required = true; show("intro"); return; }
+    fetch("api/participant?p=" + encodeURIComponent(code))
+      .then(function (r) { return r.status === 404 ? null : r.ok ? r.json() : Promise.reject(); })
+      .then(function (d) {
+        if (!d) return notice("This link isn’t valid", "Check that you copied the whole link from your invitation, or contact the research team.");
+        identified(d, "link", true);
+      })
+      .catch(function () { notice("Can’t reach the study", "Check your internet connection, then reload this page."); });
   }
+
+  function identified(d, via, route) {
+    me = d.participant;
+    progress = d.progress;
+    history.replaceState(null, "", "?p=" + me.code + (params.get("debug") ? "&debug=1" : "") + (orderOverridden ? "&order=" + encodeURIComponent($("order").value) : ""));
+    track("opened", { via: via, listed: me.listed, ua: navigator.userAgent.slice(0, 200), screen: screen.width + "x" + screen.height });
+    if (me.firstName) $("participant").value = me.firstName;
+    if (progress.done) return notice("You’ve completed the study", "Thank you for taking part. You can close this tab.");
+    if (route) show(progress.consented ? "setup" : "intro");
+  }
+
+  $("intro-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var err = $("intro-error");
+    err.hidden = true;
+    if (!$("consent").checked) { err.textContent = "Please tick the box to agree before continuing."; err.hidden = false; return; }
+    var ready = me ? Promise.resolve(true) : fetch("api/participant/identify", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: $("email").value }),
+    }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (d) {
+      identified(d, "email", false);
+      return !d.progress.done;
+    });
+    ready.then(function (go) {
+      if (!go) return;
+      track("consent");
+      progress.consented = true;
+      show("setup");
+    }).catch(function (status) {
+      err.textContent = status === 400 ? "That doesn’t look like an email address." : "Couldn’t reach the study. Check your connection and try again.";
+      err.hidden = false;
+    });
+  });
 
   fetch("api/config")
     .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
@@ -84,7 +133,7 @@
       }
     })
     .catch(function () {})
-    .then(studyInfo);
+    .then(function () { studyInfo(); boot(); });
 
   /* ---------------- setup: audio devices ---------------- */
 
@@ -221,28 +270,61 @@
     });
   });
 
+  var plannedOrder = null, startIdx = 0;
+
   $("setup-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var err = $("setup-error");
-    if (fromFile) return;
     err.hidden = true;
-    if (!CLIENTS.length) { err.textContent = "No callers are set up yet. Ask the researcher to add an agent ID."; err.hidden = false; return; }
+    if (!CLIENTS.length) { err.textContent = "No callers are set up yet. Ask the research team to add an agent ID."; err.hidden = false; return; }
     if ($("audio-devices").hidden) { err.textContent = "Allow your microphone first."; err.hidden = false; return; }
     readDevices();
+    var first = $("participant").value.trim();
+    track("device", { mic: devices.inputLabel, speaker: devices.outputLabel });
+    // save the name and get this participant's call order (rotated across participants)
+    fetch("api/participant/update", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ p: me.code, firstName: first, orders: orders.length }),
+    }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (d) {
+      me = d.participant;
+    }).catch(function () {}).then(function () {
+      var idx = me.orderIndex != null ? me.orderIndex % orders.length : 0;
+      plannedOrder = (orderOverridden ? $("order").value : orders[idx]).split(",");
+      var done = progress.completedCalls || [];
+      startIdx = 0;
+      while (startIdx < plannedOrder.length && done.indexOf(startIdx + 1) >= 0) startIdx++;
+      if (startIdx > 0) {
+        $("brief-title").textContent = "Welcome back";
+        $("brief-body").innerHTML = "";
+        var p = document.createElement("p");
+        p.className = "setup-sub";
+        p.textContent = "You’ve finished " + startIdx + " of " + plannedOrder.length + " calls. When you’re ready, the next customer will call.";
+        $("brief-body").appendChild(p);
+        $("brief-go").textContent = "Continue to call " + (startIdx + 1);
+      }
+      show("brief");
+    });
+  });
+
+  $("brief-go").addEventListener("click", function () {
     stopMeter();
     unlockAudio();
     openMic().catch(function () {});
-    startSession($("participant").value.trim(), $("order").value.split(","));
+    track("briefed", { resume: startIdx > 0 });
+    startSession($("participant").value.trim(), plannedOrder, startIdx);
   });
 
   /* ---------------- the session ---------------- */
 
-  function startSession(participantId, order) {
-    window.SIM_REP_NAME = participantId; // the prototypes' greeting reads this ("This is <name>")
+  function startSession(firstName, order, firstIdx) {
+    var participantId = (me && me.email) || firstName;
+    window.SIM_REP_NAME = firstName; // the prototypes' greeting reads this ("This is <name>")
     queue = order.map(function (id) { return BY_ID[id]; });
     log = {
       sessionId: new Date().toISOString().replace(/[:.]/g, "-"),
       participantId: participantId,
+      code: me && me.code,
+      firstName: firstName,
       order: order,
       devices: { input: devices.inputLabel, output: devices.outputLabel },
       sessionStartedAt: new Date().toISOString(),
@@ -250,11 +332,11 @@
       calls: [],
       events: [],
     };
-    history.replaceState(null, "", "?participant=" + encodeURIComponent(participantId) + "&order=" + encodeURIComponent(order.join(",")) + (params.get("debug") ? "&debug=1" : ""));
-    $("setup").hidden = true;
+    track("session_start", { order: order, sid: log.sessionId, startAt: (firstIdx || 0) + 1, version: VERSION });
+    show(null);
     $("stage").hidden = false;
     if (params.get("debug") === "1") showLog(true);
-    loadCall(0, false);
+    loadCall(firstIdx || 0, false);
   }
 
   // Load the prototype for call i. autoStart: start the call without waiting for the participant.
@@ -269,6 +351,7 @@
     };
     log.calls.push(call);
     event("session", "Loading call " + call.n + " · " + client.name);
+    track("call_load", { n: call.n, client: client.id });
 
     var stage = $("stage");
     stage.onload = function () { hookPrototype(stage, autoStart); };
@@ -300,12 +383,19 @@
     doc.addEventListener("click", function (e) {
       var el = e.target && e.target.closest ? e.target : null;
       if (!el) return;
+      var ctl = el.closest("button, a, [role=button], [role=tab], [role=option], [role=menuitem], [role=checkbox], label, summary, input, select, textarea, [data-rz], [data-cc]");
+      var label = ctl ? (ctl.getAttribute("aria-label") || ctl.getAttribute("title") || ctl.textContent || ctl.getAttribute("placeholder") || ctl.name || "")
+        .replace(/\s+/g, " ").trim().slice(0, 80) : "";
+      var w = doc.defaultView;
+      // every click is kept (with position) for click analysis and heatmaps
+      track("click", { n: call ? call.n : null, client: call ? call.client : null, label: label, tag: el.tagName.toLowerCase(),
+        interactive: !!ctl, x: Math.round(e.clientX), y: Math.round(e.clientY), sx: Math.round(w.scrollX), sy: Math.round(w.scrollY),
+        vw: w.innerWidth, vh: w.innerHeight });
+      if (el.closest("#cv-finish") && call) track("verified", { n: call.n, client: call.client });
+      var rz = el.closest("[data-rz]");
+      if (rz && call) track("step", { n: call.n, client: call.client, action: rz.getAttribute("data-rz") + (rz.getAttribute("data-v") ? ":" + rz.getAttribute("data-v") : ""), label: label });
       if (el.closest(sel)) { unlockAudio(); startCall(); return; }
       if (el.closest(".shv-logo")) { goHome(); return; }
-      var ctl = el.closest("button, a, [role=button], [role=tab], [role=option], [role=menuitem], label, summary, input, select");
-      if (!ctl) return;
-      var label = (ctl.getAttribute("aria-label") || ctl.getAttribute("title") || ctl.textContent || ctl.getAttribute("placeholder") || ctl.name || "")
-        .replace(/\s+/g, " ").trim().slice(0, 80);
       if (!label) return;
       event("click", label);
       if (CFG.sendNavigationContext && callState === "connected" && conversation) {
@@ -332,12 +422,14 @@
     if ((callState === "connecting" || callState === "connected") &&
         !window.confirm("End this call and go back to the start page?")) return;
     event("session", "Left via the logo");
+    track("left", { n: call ? call.n : null });
     var conv = conversation;
     if (conv) { finishCall("participant_left"); conv.endSession(); }
     clearTimeout(breakTimer);
     saveLog();
     if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
-    location.href = location.pathname + "?order=" + encodeURIComponent(log.order.join(","));
+    flush(true);
+    location.href = location.pathname + "?p=" + encodeURIComponent(me.code);
   }
 
   /* ---------------- the call ---------------- */
@@ -354,9 +446,11 @@
     mute: setMuted,
     hold: setHold,
     log: function (text) { event("call", text); },
+    track: function (type, fields) { track(type, Object.assign({ n: call ? call.n : null, client: call ? call.client : null }, fields || {})); },
     // Transfer from the call controls' second line: the customer leaves this call
     transfer: function (to) {
       var conv = conversation;
+      track("transfer", { n: call.n, client: call.client, to: to });
       finishCall("transferred to " + to);
       if (conv) conv.endSession();
     },
@@ -433,6 +527,7 @@
     setCallState("connecting");
     call.startedAt = new Date().toISOString();
     event("call", "Call " + call.n + " started · " + client.name);
+    track("call_start", { n: call.n, client: client.id });
 
     var mine = call;
     startRing();
@@ -451,15 +546,17 @@
         call.conversationId = p && p.conversationId;
         call.connectedAt = new Date().toISOString();
         event("call", "Connected · conversation " + call.conversationId);
+        track("call_connected", { n: call.n, client: call.client, conversationId: call.conversationId });
         setCallState("connected");
       };
       opts.onMessage = function (m) {
         var role = m.role || (m.source === "ai" ? "agent" : "user");
         mine.transcript.push({ at: new Date().toISOString(), role: role, text: m.message });
+        track("transcript", { n: mine.n, client: mine.client, role: role, text: m.message });
         renderLog();
       };
       opts.onModeChange = function (m) { $("call").classList.toggle("is-speaking", m.mode === "speaking"); };
-      opts.onError = function (message) { event("error", String(message)); };
+      opts.onError = function (message) { event("error", String(message)); track("error", { n: mine.n, message: String(message) }); };
       opts.onDisconnect = function (details) {
         if (mine !== call) return;
         finishCall(details && details.reason === "agent" ? "agent_hung_up"
@@ -480,6 +577,7 @@
       stopRing();
       var msg = (err && err.message) || String(err);
       event("error", msg);
+      track("error", { n: mine.n, message: msg, connect: true });
       setCallState("failed", /permission|NotAllowed/i.test(msg) ? "Microphone blocked" : "Couldn't connect");
       saveLog();
     });
@@ -509,6 +607,7 @@
     call.endedAt = new Date().toISOString();
     call.endReason = reason;
     event("call", "Call " + call.n + " ended (" + reason + ")");
+    track("call_end", { n: call.n, client: call.client, reason: reason });
     var failed = reason.indexOf("error") === 0 && !call.connectedAt;
     setCallState(failed ? "failed" : "ended", failed ? "Call dropped" : "");
     conversation = null;
@@ -522,6 +621,7 @@
     $("call-mute-label").textContent = muted ? "Unmute" : "Mute";
     if (conversation) conversation.setMicMuted(muted || onHold);
     event("call", muted ? "Muted" : "Unmuted");
+    track("mute", { n: call ? call.n : null, on: muted });
   }
 
   // Hold: the caller can't hear the representative and the representative can't hear the caller.
@@ -535,6 +635,7 @@
         : "The representative is back from hold and can hear you again.");
     }
     event("call", onHold ? "Placed on hold" : "Resumed from hold");
+    track("hold", { n: call ? call.n : null, on: onHold });
   }
 
   function setCallState(state, message) {
@@ -577,7 +678,11 @@
   $("call-end").addEventListener("click", endCall);
   $("call-mute").addEventListener("click", function () { setMuted(!muted); });
 
-  window.addEventListener("pagehide", function () { if (conversation) conversation.endSession(); });
+  window.addEventListener("pagehide", function () {
+    track("page_hide", { n: call ? call.n : null, state: callState });
+    flush(true);
+    if (conversation) conversation.endSession();
+  });
 
   /* ---------------- between calls ---------------- */
 
@@ -585,7 +690,8 @@
     if (callIdx + 1 >= queue.length) {
       log.sessionEndedAt = new Date().toISOString();
       event("session", "All calls complete");
-      showBreak("All calls complete", "Thank you. Please let the researcher know you’re done.", true);
+      track("done");
+      showBreak("All calls complete", "Thank you for taking part. You can close this tab.", true);
       saveLog();
       if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
       return;
@@ -619,6 +725,7 @@
 
   $("break-now").addEventListener("click", function () {
     event("session", "Next call started early");
+    track("break_skip", { after: call ? call.n : null });
     breakPaused = false;
     breakLeft = 0;
     breakTick();
@@ -627,6 +734,7 @@
   $("break-pause").addEventListener("click", function () {
     breakPaused = !breakPaused;
     event("session", breakPaused ? "Next call paused" : "Next call resumed");
+    track(breakPaused ? "break_pause" : "break_resume", { after: call ? call.n : null });
     this.textContent = breakPaused ? "Start next call" : "Pause next call";
     $("break-now").hidden = breakPaused;
     if (breakPaused) {
@@ -637,6 +745,26 @@
       breakTick();
     }
   });
+
+  /* ---------------- study events (sent to the server for the dashboard) ---------------- */
+
+  var outbox = [], flushTimer = 0;
+  function track(type, fields) {
+    if (!me) return;
+    outbox.push(Object.assign({ type: type, at: new Date().toISOString() }, fields || {}));
+    if (!flushTimer) flushTimer = setTimeout(function () { flush(false); }, 3000);
+  }
+  function flush(leaving) {
+    clearTimeout(flushTimer); flushTimer = 0;
+    if (!me || !outbox.length || !server.available) return;
+    var batch = outbox.splice(0, 500);
+    var body = JSON.stringify({ p: me.code, events: batch });
+    if (leaving && navigator.sendBeacon && navigator.sendBeacon("api/events", new Blob([body], { type: "application/json" }))) return;
+    fetch("api/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: body, keepalive: body.length < 60000 })
+      .then(function (r) { if (!r.ok) throw new Error(); })
+      .catch(function () { outbox = batch.concat(outbox); })   // keep them and retry with the next batch
+      .then(function () { if (outbox.length && !flushTimer) flushTimer = setTimeout(function () { flush(false); }, 3000); });
+  }
 
   /* ---------------- session log ---------------- */
 
@@ -671,7 +799,7 @@
   function renderLog() {
     if (!log || $("log").hidden) return;
     var meta = [
-      ["Participant", log.participantId || "—"],
+      ["Participant", (me ? me.email + " · " + me.code : log.participantId) || "—"],
       ["Call", call ? call.n + " of " + queue.length + " · " + call.caller : "—"],
       ["State", callState + (call && call.connectedAt ? " · " + elapsed() : "")],
       ["Conversation", (call && call.conversationId) || "—"],
@@ -716,6 +844,6 @@
 
   $("log-restart").addEventListener("click", function () {
     if (conversation) conversation.endSession();
-    location.href = location.pathname + "?order=" + encodeURIComponent(log ? log.order.join(",") : $("order").value);
+    location.href = location.pathname + (me ? "?p=" + encodeURIComponent(me.code) : "");
   });
 })();

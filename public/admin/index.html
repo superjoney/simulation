@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Study Dashboard</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <!-- Sign in -->
+  <main id="login" class="login" hidden>
+    <form id="login-form" class="card login-card">
+      <h1>Study dashboard</h1>
+      <p class="sub">Sign in with your researcher name and password.</p>
+      <label class="field"><span>Name</span><input id="login-name" autocomplete="username" required></label>
+      <label class="field"><span>Password</span><input id="login-pass" type="password" autocomplete="current-password" required></label>
+      <button class="btn btn-primary" type="submit">Sign in</button>
+      <p id="login-error" class="error" role="alert" hidden></p>
+    </form>
+  </main>
+
+  <!-- Dashboard -->
+  <div id="app" hidden>
+    <header class="top">
+      <div class="top-l">
+        <strong>Study dashboard</strong>
+        <span id="env" class="env" hidden></span>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+        <button role="tab" data-tab="participants" aria-selected="false">Participants</button>
+        <button role="tab" data-tab="invites" aria-selected="false">Invites</button>
+      </nav>
+      <div class="top-r">
+        <span id="updated" class="muted"></span>
+        <button id="refresh" class="btn btn-ghost" type="button">Refresh</button>
+        <span id="me" class="muted"></span>
+        <button id="logout" class="btn btn-ghost" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <!-- Overview -->
+    <section id="tab-overview" class="page">
+      <div class="kpis" id="kpis"></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-h"><h2>Progress</h2><span class="muted">How far participants got</span></div>
+          <div id="funnel" class="funnel"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Calls by customer</h2><span class="muted">Completed calls · medians</span></div>
+          <div class="table-wrap"><table class="table" id="clients"></table></div>
+          <p class="note">Handle time runs from the caller connecting to the call ending. Time to verify runs from connecting to “Finish verification”.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Export</h2></div>
+        <div class="actions">
+          <a class="btn btn-secondary" href="/api/admin/export.csv">Participants (CSV)</a>
+          <a class="btn btn-secondary" href="/api/admin/export.json">Everything (JSON)</a>
+        </div>
+        <p class="note">The CSV has one row per participant with each call’s metrics. The JSON has every event, including transcripts and clicks.</p>
+      </div>
+    </section>
+
+    <!-- Participants -->
+    <section id="tab-participants" class="page" hidden>
+      <div class="card">
+        <div class="filters">
+          <div class="chips" id="chips"></div>
+          <input id="search" type="search" placeholder="Search email or name">
+        </div>
+        <div class="table-wrap"><table class="table table-hover" id="people"></table></div>
+      </div>
+    </section>
+
+    <!-- Invites -->
+    <section id="tab-invites" class="page" hidden>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-h"><h2>Invite participants</h2></div>
+          <p class="note">Paste email addresses, separated by commas, spaces or new lines. Each person gets their own link.</p>
+          <textarea id="invite-emails" rows="7" placeholder="ana@company.com, ben@company.com…"></textarea>
+          <div class="actions"><button id="invite-add" class="btn btn-primary" type="button">Add invites</button></div>
+          <p id="invite-result" class="note" role="status"></p>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Shared link</h2></div>
+          <p class="note">For a Slack post or anyone without a personal link. Participants enter their email; anyone not on the invite list is flagged.</p>
+          <div class="copyrow"><code id="shared-link"></code><button class="btn btn-secondary" type="button" data-copy="shared">Copy</button></div>
+          <div class="card-h" style="margin-top:20px"><h2>Personal links</h2></div>
+          <div class="actions">
+            <button id="copy-links" class="btn btn-secondary" type="button">Copy all links</button>
+            <button id="download-links" class="btn btn-secondary" type="button">Download for mail merge (CSV)</button>
+          </div>
+          <p class="note">The CSV has email, first name (once known), link and status: use it with a mail merge so each person gets their own link.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>All participants</h2><span class="muted" id="invite-count"></span></div>
+        <div class="table-wrap"><table class="table" id="links"></table></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Participant detail -->
+  <aside id="detail" class="drawer" hidden aria-label="Participant detail">
+    <div class="drawer-h">
+      <div><strong id="d-title"></strong><div class="muted" id="d-sub"></div></div>
+      <button class="btn btn-ghost" type="button" id="d-close">Close</button>
+    </div>
+    <div class="drawer-b" id="d-body"></div>
+  </aside>
+  <div id="scrim" class="scrim" hidden></div>
+
+  <div id="toast" class="toast" hidden role="status"></div>
+
+  <script src="/config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

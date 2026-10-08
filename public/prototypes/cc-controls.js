@@ -142,6 +142,7 @@
     S.consult = { id: d.id, name: d.name, number: d.number, state: "dialing", at: 0, autoHold: !S.held };
     if (!S.held) { S.held = true; if (bridge) bridge.hold(true); }   // the caller waits on hold while you consult
     note("Dialing " + d.name + " · " + d.number);
+    if (bridge && bridge.track) bridge.track("dial", { to: d.name });
     render();
     consultTimers.push(setTimeout(function () { if (S.consult) { S.consult.state = "ringing"; render(); } }, 1400));
     consultTimers.push(setTimeout(function () {
@@ -158,6 +159,7 @@
     S.consult = null;
     if (silent) return;
     note("Hung up on " + c.name);
+    if (bridge && bridge.track) bridge.track("consult_drop", { to: c.name });
     if (c.autoHold && S.held) { S.held = false; if (bridge) bridge.hold(false); }
     render();
   }
