@@ -92,6 +92,7 @@ function common(t) {
   t = replace(t,
     "body: dl([stopRow, srcRow, ['Reissue to', TO], ['Delivery', 'Standard mail. No expedited or tracked option.'], ['Processing', '5 business days, plus mail time']]) +",
     "body: '<div class=\"rz-acts\">' + seg('e11fod', [['mail', 'Standard mail'], ['fedex', 'FedEx'], ['wire', 'Wire']], s.fod, 'Form of delivery') + '</div>' +\n" +
+    "          (s.fod === 'wire' ? warn('<b>Wire is an exception.</b> Offer it only after repeated failed mail attempts. It needs wire instructions from the client’s bank, or a voided check on bank letterhead, and the Research Dept handles it. ' + KA('KA-01804')) : '') +\n" +
     "          dl(s.fod === 'wire'\n" +
     "            ? [stopRow, srcRow, ['Send to', 'The client’s bank account'], ['Needs', 'Wire instructions from the client’s bank, or a voided check on bank letterhead, sent to the Research Dept ' + KA('KA-01804')], ['Processing', 'Starts once the Research Dept has the bank details']]\n" +
     "            : [stopRow, srcRow, ['Reissue to', TO], ['Delivery', s.fod === 'fedex' ? 'FedEx · about $7, varies by address' : 'Standard mail · standard postage'], ['Processing', '5 business days, plus ' + (s.fod === 'fedex' ? 'FedEx transit' : 'mail time')]]) +");

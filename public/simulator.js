@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-08.3"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-08.4"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
