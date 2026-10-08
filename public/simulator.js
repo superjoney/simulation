@@ -68,11 +68,14 @@
   /* ---------------- setup: audio devices ---------------- */
 
   var meter = null;
+  // The chosen microphone stays open for the whole session. Holding it means the browser never asks for
+  // permission again between calls (Safari, or Chrome's "Allow this time"), so the next call goes straight in.
+  var micStream = null;
   var canPickSpeaker = typeof HTMLMediaElement !== "undefined" && "setSinkId" in HTMLMediaElement.prototype;
 
   $("audio-allow").addEventListener("click", function () {
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
-      stream.getTracks().forEach(function (t) { t.stop(); });
+      micStream = stream;
       return listDevices();
     }).then(function () {
       $("audio-allow").hidden = true;
@@ -119,16 +122,28 @@
   $("mic-select").addEventListener("change", function () { readDevices(); startMeter(); });
   $("speaker-select").addEventListener("change", readDevices);
 
+  function openMic() {
+    var track = micStream && micStream.getAudioTracks()[0];
+    if (track && track.readyState === "live" && (!devices.input || (track.getSettings().deviceId || "") === devices.input)) {
+      return Promise.resolve(micStream);
+    }
+    var constraints = { audio: devices.input ? { deviceId: { exact: devices.input } } : true };
+    return navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+      if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
+      micStream = stream;
+      return stream;
+    });
+  }
+
   function startMeter() {
     stopMeter();
-    var constraints = { audio: devices.input ? { deviceId: { exact: devices.input } } : true };
-    navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+    openMic().then(function (stream) {
       var ctx = new AudioContext();
       var analyser = ctx.createAnalyser();
       analyser.fftSize = 512;
       ctx.createMediaStreamSource(stream).connect(analyser);
       var data = new Uint8Array(analyser.fftSize), heard = false;
-      meter = { stream: stream, ctx: ctx, raf: 0 };
+      meter = { ctx: ctx, raf: 0 };
       (function tick() {
         analyser.getByteTimeDomainData(data);
         var peak = 0;
@@ -149,7 +164,6 @@
   function stopMeter() {
     if (!meter) return;
     cancelAnimationFrame(meter.raf);
-    meter.stream.getTracks().forEach(function (t) { t.stop(); });
     meter.ctx.close();
     meter = null;
   }
@@ -178,6 +192,7 @@
     if ($("audio-devices").hidden) { err.textContent = "Allow your microphone first."; err.hidden = false; return; }
     readDevices();
     stopMeter();
+    openMic().catch(function () {});
     startSession($("participant").value.trim(), $("order").value.split(","));
   });
 
@@ -238,10 +253,15 @@
     doc.__simHooked = true;
     var sel = CFG.startSelector || "#tm-start";
 
+    var logoStyle = doc.createElement("style");
+    logoStyle.textContent = ".shv-logo{cursor:pointer}";
+    (doc.head || doc.documentElement).appendChild(logoStyle);
+
     doc.addEventListener("click", function (e) {
       var el = e.target && e.target.closest ? e.target : null;
       if (!el) return;
       if (el.closest(sel)) { startCall(); return; }
+      if (el.closest(".shv-logo")) { goHome(); return; }
       var ctl = el.closest("button, a, [role=button], [role=tab], [role=option], [role=menuitem], label, summary, input, select");
       if (!ctl) return;
       var label = (ctl.getAttribute("aria-label") || ctl.getAttribute("title") || ctl.textContent || ctl.getAttribute("placeholder") || ctl.name || "")
@@ -265,6 +285,19 @@
         else showIdleCall();
       })();
     }
+  }
+
+  // The rocket logo in the prototype: end the session and go back to the start page.
+  function goHome() {
+    if ((callState === "connecting" || callState === "connected") &&
+        !window.confirm("End this call and go back to the start page?")) return;
+    event("session", "Left via the logo");
+    var conv = conversation;
+    if (conv) { finishCall("participant_left"); conv.endSession(); }
+    clearTimeout(breakTimer);
+    saveLog();
+    if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
+    location.href = location.pathname + "?order=" + encodeURIComponent(log.order.join(","));
   }
 
   /* ---------------- the call ---------------- */
@@ -368,7 +401,7 @@
     setCallState(failed ? "failed" : "ended", failed ? "Call dropped" : "");
     conversation = null;
     saveLog();
-    if (!failed) afterCall();
+    if (!failed && reason !== "participant_left") afterCall();
   }
 
   function setMuted(m) {
@@ -442,6 +475,7 @@
       event("session", "All calls complete");
       showBreak("All calls complete", "Thank you. Please let the researcher know you’re done.", true);
       saveLog();
+      if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
       return;
     }
     breakLeft = CFG.breakSeconds || 10;
@@ -468,12 +502,21 @@
     $("break").className = "break" + (done ? " is-done" : "");
     $("break").hidden = false;
     $("break-pause").textContent = breakPaused ? "Start next call" : "Pause next call";
+    $("break-now").hidden = breakPaused;
   }
+
+  $("break-now").addEventListener("click", function () {
+    event("session", "Next call started early");
+    breakPaused = false;
+    breakLeft = 0;
+    breakTick();
+  });
 
   $("break-pause").addEventListener("click", function () {
     breakPaused = !breakPaused;
     event("session", breakPaused ? "Next call paused" : "Next call resumed");
     this.textContent = breakPaused ? "Start next call" : "Pause next call";
+    $("break-now").hidden = breakPaused;
     if (breakPaused) {
       clearTimeout(breakTimer);
       $("break-sub").textContent = "Next call is paused.";

@@ -11,11 +11,11 @@
   <main id="setup" class="setup">
     <form id="setup-form" class="setup-card">
       <h1>Welcome</h1>
-      <p class="setup-sub">Thanks for taking part. Enter the participant ID you were given and choose the headset you’ll use. When you press Start, you’ll take two customer calls back to back, with a short break in between.</p>
+      <p class="setup-sub">Thanks for taking part. Enter your name and ensure your microphone is connected and sound on. When you press Start, you’ll take two customer calls back to back.</p>
 
       <label class="field">
-        <span>Participant ID</span>
-        <input id="participant" name="participant" autocomplete="off" placeholder="e.g. P07" required>
+        <span>Your name</span>
+        <input id="participant" name="participant" autocomplete="name" required>
       </label>
 
       <fieldset class="field devices">
@@ -68,6 +68,7 @@
       <strong id="break-title">Call complete</strong>
       <span id="break-sub"></span>
     </div>
+    <button type="button" id="break-now" class="btn btn-secondary">Start now</button>
     <button type="button" id="break-pause" class="btn btn-secondary">Pause next call</button>
   </div>
 

@@ -26,12 +26,12 @@
     return '<div class="cx">' +
       '<div class="cx-why"><div class="cx-lbl">' + h.ic('sparkle') + 'Why they’re calling · ' + C.why[0] + '</div>' +
         '<p class="cx-why-t">' + C.why[1] + '</p><span class="cx-sub">' + C.why[2] + '</span></div>' +
-      '<div class="cx-recap cx-recap--b"><button type="button" class="cx-recap-h" data-shv="cxt" data-v="cx-recap" aria-expanded="false" aria-controls="cx-recap">' +
+      (C.recap ? '<div class="cx-recap cx-recap--b"><button type="button" class="cx-recap-h" data-shv="cxt" data-v="cx-recap" aria-expanded="false" aria-controls="cx-recap">' +
         '<span class="cx-recap-ic">' + h.ic('sparkle') + '</span><span>Recap</span><span class="cx-recap-s"></span>' + chev + '</button>' +
         '<div class="cx-recap-b" id="cx-recap" hidden>' +
-          '<div class="cx-elig"><div class="cx-lbl">' + h.ic('check_circle') + 'Eligible for</div><p>' + C.elig + '</p></div>' +
-          '<div class="cx-tp"><div class="cx-lbl">' + h.ic('chat') + 'Talking points</div><ol>' + C.points.map(function (p) { return '<li>' + p + '</li>'; }).join('') + '</ol></div>' +
-        '</div></div>' +
+          '<div class="cx-elig"><div class="cx-lbl">' + h.ic('check_circle') + C.recap.label + '</div><p>' + C.recap.elig + '</p></div>' +
+          '<div class="cx-tp"><div class="cx-lbl">' + h.ic('chat') + 'Talking points</div><ol>' + C.recap.points.map(function (p) { return '<li>' + p + '</li>'; }).join('') + '</ol></div>' +
+        '</div></div>' : '') +
       '<h4 class="cx-sec"><span>Activity</span></h4><ul class="cx-sigs cx-sigs--b">' + C.activity.map(sig).join('') + '</ul>' +
       '<h4 class="cx-sec"><span>Payments</span>' +
         (DATA.autopay ? '<span class="cx-sec-r cx-ok">' + h.ic('check_circle') + 'Autopay <span class="cx-num">····' + DATA.autopay + '</span></span>' : '<span class="cx-sec-r">No autopay</span>') + '</h4>' +

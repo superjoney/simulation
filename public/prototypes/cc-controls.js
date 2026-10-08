@@ -66,6 +66,29 @@
 
     callerInfo();
     var live = S.state === "connected";
+    var buttons =
+        '<button type="button" class="cc-btn" data-cc="mute" aria-pressed="' + S.muted + '" aria-label="' + (S.muted ? "Unmute" : "Mute") + '" title="' + (S.muted ? "Unmute" : "Mute") + '">' + icon(S.muted ? "microphone_mute" : "microphone") + '</button>' +
+        '<button type="button" class="cc-btn" data-cc="hold" aria-pressed="' + S.held + '" aria-label="' + (S.held ? "Resume" : "Hold") + '" title="' + (S.held ? "Resume" : "Hold") + '">' + icon("pause-small") + '</button>' +
+        '<button type="button" class="cc-btn" data-cc="add" aria-label="Add or transfer" title="Add or transfer">' + icon("add") + '</button>' +
+        '<button type="button" class="cc-btn" data-cc="keypad" aria-label="Keypad" title="Keypad">' + icon("keypad") + '</button>';
+
+    // Popped out: a compact, phone-shaped card
+    if (host.id === "cc-float-body") {
+      host.innerHTML =
+        '<div class="cc-phone-card" role="group" aria-label="Call with ' + esc(S.caller) + '">' +
+          '<div class="cc-phone-card__who"><span class="cc-name">' + esc(S.caller) + '</span>' +
+            (S.phone ? '<span class="cc-phone">' + esc(S.phone) + '</span>' : '') + '</div>' +
+          '<div class="cc-phone-card__time">' +
+            (live ? '<span class="cc-time">' + duration() + '</span><span class="cc-since">Started ' + esc(S.startClock) + '</span>' +
+                    (S.held ? '<span class="cc-held">On hold</span>' : '')
+                  : '<span>Call ended · ' + duration() + '</span>') +
+          '</div>' +
+          (live ? '<div class="cc-phone-card__btns">' + buttons + '</div>' +
+                  '<button type="button" class="cc-end" data-cc="end" aria-label="End call">' + icon("call_end") + 'End call</button>' : '') +
+        '</div>';
+      return;
+    }
+
     host.innerHTML =
       '<div class="cc-pill" role="group" aria-label="Call with ' + esc(S.caller) + '">' +
         '<span class="cc-name">' + esc(S.caller) + '</span>' +
@@ -74,10 +97,7 @@
           (live ? '· <span class="cc-time">' + duration() + '</span> · ' + esc(S.startClock) + (S.held ? ' · <span class="cc-held">On hold</span>' : '')
                 : '· Call ended · ' + duration()) +
         '</span>' +
-        '<button type="button" class="cc-btn" data-cc="mute" aria-pressed="' + S.muted + '" aria-label="' + (S.muted ? "Unmute" : "Mute") + '" title="' + (S.muted ? "Unmute" : "Mute") + '">' + icon(S.muted ? "microphone_mute" : "microphone") + '</button>' +
-        '<button type="button" class="cc-btn" data-cc="hold" aria-pressed="' + S.held + '" aria-label="' + (S.held ? "Resume" : "Hold") + '" title="' + (S.held ? "Resume" : "Hold") + '">' + icon("pause-small") + '</button>' +
-        '<button type="button" class="cc-btn" data-cc="add" aria-label="Add or transfer" title="Add or transfer">' + icon("add") + '</button>' +
-        '<button type="button" class="cc-btn" data-cc="keypad" aria-label="Keypad" title="Keypad">' + icon("keypad") + '</button>' +
+        buttons +
         '<button type="button" class="cc-end" data-cc="end" aria-label="End call">' + icon("call_end") + 'End</button>' +
       '</div>';
   }
@@ -182,6 +202,7 @@
     var bar = e.currentTarget;
     bar.setPointerCapture && bar.setPointerCapture(e.pointerId);
     function move(ev) {
+      f.style.bottom = "auto";
       f.style.left = Math.max(0, Math.min(ev.clientX - dx, W.innerWidth - f.offsetWidth)) + "px";
       f.style.top = Math.max(0, Math.min(ev.clientY - dy, W.innerHeight - f.offsetHeight)) + "px";
     }

@@ -30,14 +30,16 @@ Requires Node 18+. No `npm install` step. Use Chrome or Edge, and open the page 
 
 ## Running a session
 
-1. The participant enters their ID, clicks **Allow microphone**, picks their microphone and
-   speaker (the level bar and **Play test sound** confirm both), and presses **Start**.
+1. The participant enters their name, clicks **Allow microphone**, picks their microphone and
+   speaker (the level bar and **Play test sound** confirm both), and presses **Start**. The
+   microphone stays open for the whole session, so the browser doesn't ask again between calls.
 2. The first customer's prototype opens on "No active call". The participant clicks
    **Initiate call simulation** and the first agent calls in.
 3. When the call ends, a card counts down 10 seconds, then the next customer's prototype loads and
-   their call starts on its own. **Pause next call** holds it (for wrap-up notes) until
-   **Start next call** is pressed.
+   their call starts on its own. **Start now** skips the wait; **Pause next call** holds it (for
+   wrap-up notes) until **Start next call** is pressed.
 4. After the last call the card says the session is complete.
+5. The rocket logo in the prototype goes back to the start page (with a confirm during a call).
 
 **Study settings** (small link under Start) sets the call order, e.g. Ruth → Marcus or
 Marcus → Ruth, for counterbalancing. Links can preset it:
@@ -77,8 +79,9 @@ data in `tools/clients.js`. Each build:
 - shows that customer's name, loan number, address, phone, email, last-4 SSN and last payment in the
   identity check, header and call controls, matching the call scripts;
 - opens that customer's playbook after verification (refund reissue, paid shortage or premium change);
-- rewrites the right panel (why they're calling, recap, activity, payments, upcoming changes, taxes
-  and insurance) and the live call summary for that customer;
+- rewrites the right panel (why they're calling, activity, payments, upcoming changes, taxes and
+  insurance) and the live call summary for that customer. The Recap appears for Marcus only, as a
+  refinance pitch (FHA Streamline, estimated figures);
 - fixes the right panel so it opens and stays open on laptop-width screens.
 
 Every edit is an exact match, so if a new export changes the code the build stops with the line that
@@ -92,7 +95,8 @@ Loan details, Cases, Touchpoints and Documents tabs are placeholders in the expo
 
 The export didn't include its telephony files, so `public/prototypes/cc-controls.js` and
 `cc-controls.css` rebuild them: the call bar at the top of the prototype (caller, number, timer, mute,
-hold, add, keypad, End, pop-out), wired to the voice call.
+hold, add, keypad, End, pop-out), wired to the voice call. Popped out, it becomes a compact phone card
+in the bottom-left corner that can be dragged anywhere.
 
 - **Mute** stops the participant's microphone.
 - **Hold** mutes both directions and tells the agent it's on hold; resuming tells it the representative is back.

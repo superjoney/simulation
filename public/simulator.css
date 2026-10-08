@@ -105,6 +105,7 @@ body { background: var(--bg); color: var(--text); }
 .break .btn-secondary { background: #3a3834; border-color: #3a3834; color: #fff; white-space: nowrap; }
 .break .btn-secondary:hover { background: #4a4843; }
 .break.is-done .btn { display: none; }
+.break .btn + .btn { margin-left: -10px; }
 
 /* ---------- researcher log ---------- */
 .log {

@@ -29,11 +29,7 @@ module.exports = {
     ],
     ctx: {
       why: ["Escrow", "Refund check for <span class=\"cx-acc cx-num\">$1,284.60</span> hasn’t been cashed", "Mailed Aug 4 · check no. 0041887"],
-      elig: "Stopping and reissuing the <b class=\"cx-num\">$1,284.60</b> refund check. It’s past the 30-day gate, not cashed, the account is current and there’s no prior stop-pay.",
-      points: [
-        "“Your check for $1,284.60 went out Aug 4 and hasn’t been cashed. It’s been more than 30 days, so I can stop it and send a new one on this call.”",
-        "“Before I send the new one, let me confirm the address we have on file: 428 Maple Ave, Boulder, CO 90301.”",
-      ],
+      recap: null, // recap shows for Marcus only
       activity: [
         ["Refund check mailed · no. 0041887", "Aug 4"],
         ["Escrow analysis · surplus $1,284.60", "Jul 28"],
@@ -84,12 +80,16 @@ module.exports = {
     ],
     ctx: {
       why: ["Escrow", "Payment still going up after paying a <span class=\"cx-acc cx-num\">$216.65</span> shortage", "Shortage paid Oct 2 · analysis ran Sep 28"],
-      elig: "Removing the <b class=\"cx-num\">$18.05</b> shortage spread (EASP). The <span class=\"cx-num\">$216.65</span> shortage was paid in full on Oct 2, so the payment can drop to <b class=\"cx-num\">$1,440.95</b>.",
-      points: [
-        "“Your $216.65 shortage payment came through, so you won’t be charged for the shortage again.”",
-        "“The $18.05 for the shortage should come off now that it’s paid. Your payment will be $1,440.95, not back to $1,425.88.”",
-        "“The other $15.07 a month stays. It covers higher taxes and insurance, because next year’s bills are collected ahead of time.”",
-      ],
+      // Recap · refinance pitch (Marcus only). Balance, rate and savings are invented estimates.
+      recap: {
+        label: "Refinance opportunity",
+        elig: "An <b>FHA Streamline Refinance</b>. The loan is FHA 30-year fixed at <b class=\"cx-num\">6.58%</b>, current, with on-time payments. At today’s <b class=\"cx-num\">5.875%</b>, principal and interest could drop about <b class=\"cx-num\">$126/mo</b> (est., $152,310 balance).",
+        points: [
+          "“Before we wrap up, I noticed your rate is 6.58%. Rates are lower right now, so a refinance could bring your monthly payment down.”",
+          "“Because your loan is FHA and you’re current, you may qualify for an FHA Streamline. That usually means no appraisal and less paperwork.”",
+          "“Would you like me to connect you with a Home Loan Expert for a free review? It only takes a few minutes.”",
+        ],
+      },
       activity: [
         ["Escrow deposit · shortage paid", "$216.65", false, "Oct 2"],
         ["Payment cleared Oct 1", "$1,425.88"],
@@ -131,11 +131,7 @@ module.exports = {
     ],
     ctx: {
       why: ["Insurance", "Switched to a cheaper homeowners policy · <span class=\"cx-acc cx-num\">−$264/yr</span>", "Dec page received Oct 3 · Front Range Mutual"],
-      elig: "An off-cycle escrow analysis. The new Front Range Mutual policy ($1,380.00/yr) is on file and the premium went down, so the client doesn’t have to wait for the annual review.",
-      points: [
-        "“Your new policy is on file at $1,380 a year, which is $22 a month less going into escrow.”",
-        "“Let me check the policy against the dec page, then I’ll rerun your escrow.”",
-      ],
+      recap: null, // recap shows for Marcus only
       activity: [
         ["Dec page received · Front Range Mutual", "Oct 3"],
         ["Payment cleared Oct 1 · autopay", "$1,683.22"],
