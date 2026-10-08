@@ -130,11 +130,6 @@ body { background: var(--bg); color: var(--text); }
   font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
 
 /* ---------- welcome, consent, briefing ---------- */
-.needs { font-size: 14px; line-height: 1.5; }
-.needs ul, .brief-list { margin: 6px 0 0; padding-left: 20px; }
-.needs li, .brief-list li { margin: 2px 0; }
-.brief-list { font-size: 14px; line-height: 1.55; color: var(--text); margin: -6px 0 0; }
-.brief-list li { margin: 6px 0; }
 .consent { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: #faf9f6; font-size: 13px; line-height: 1.5; color: var(--subtle); }
 .consent p { margin: 0; }
 .check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text); font-weight: 500; cursor: pointer; }

@@ -55,8 +55,9 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
 3. For Slack or anyone without a personal link, share the **Shared link** (the site's home page).
    Participants enter their email and first name; anyone not on the invite list still takes part
    but is flagged.
-4. Participants see one welcome screen (consent, then the audio check appears), a short briefing
-   whose button rings the first call, two calls, the survey, then the Build-your-panel activity. Call order is counterbalanced automatically. If they
+4. Participants see one welcome screen (consent, then the audio check appears), then the first
+   prototype's start card, which carries the briefing; its button starts the first call. Then two
+   calls, the survey, and the Build-your-panel activity. Call order is counterbalanced automatically. If they
    refresh or come back later, they resume where they left off (including half-finished survey
    answers); once finished, the link says the study is complete.
 5. **Overview** shows the funnel, completion, pauses and per-customer medians (handle time, time to
@@ -105,7 +106,8 @@ Data is stored in `SESSIONS_DIR`: `participants.json` (including survey and pane
    speaker (the level bar and **Play test sound** confirm both), agrees to take part and presses
    **Continue**. The microphone stays open for the whole session, so the browser doesn't ask again
    between calls.
-2. The briefing's button opens the first customer's prototype and the call rings straight away.
+2. The first customer's prototype opens on its start card, with the briefing above
+   **Initiate call simulation**. Pressing it starts the first call.
 3. When the call ends, a card counts down 10 seconds, then the next customer's prototype loads and
    their call starts on its own. **Start now** skips the wait; **Pause next call** holds it (for
    wrap-up notes) until **Start next call** is pressed.

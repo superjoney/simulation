@@ -1,14 +1,14 @@
 /* Call center simulator.
    A session plays several calls back to back. For each call it loads that client's prototype build in a
-   same-origin iframe and starts the client's ElevenLabs agent (the caller). The first call rings as soon as
-   the participant leaves the briefing; later calls start on their own after a short break, which the
-   participant can pause. After the last call comes a short survey. Everything is kept in a session log
+   same-origin iframe and starts the client's ElevenLabs agent (the caller). The first call starts from the
+   prototype's start card, which carries the briefing; later calls start on their own after a short break,
+   which the participant can pause. After the last call comes a short survey. Everything is kept in a session log
    (transcripts, clicks, timings) that is saved to the server after each call. */
 (function () {
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-09.4"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-09.5"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -70,7 +70,7 @@
 
   /* ---------------- who is this: invite link (?p=CODE) or shared link + email ---------------- */
 
-  function show(id) { ["intro", "brief", "survey", "panel", "notice"].forEach(function (x) { $(x).hidden = x !== id; }); }
+  function show(id) { ["intro", "survey", "panel", "notice"].forEach(function (x) { $(x).hidden = x !== id; }); }
   function notice(title, body) { $("notice-title").textContent = title; $("notice-body").textContent = body; show("notice"); }
 
   function boot() {
@@ -124,6 +124,8 @@
     if (!$("consent-box").hidden && !$("consent").checked) return fail("Please tick the box to agree before continuing.");
     if ($("audio-devices").hidden) return fail("Allow your microphone first, so you can talk to the callers.");
     if (!CLIENTS.length) return fail("No callers are set up yet. Ask the research team to add an agent ID.");
+    readDevices();
+    unlockAudio();   // inside the click, so the ring can play later (Safari)
 
     var ready = me ? Promise.resolve(true) : fetch("api/participant/identify", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: $("email").value }),
@@ -149,22 +151,18 @@
     });
   });
 
+  // Work out the call order and where to start, then open the first prototype. Its "No active call" card
+  // carries the briefing, and its button rings the first call.
   function briefing() {
     var idx = me.orderIndex != null ? me.orderIndex % orders.length : 0;
     plannedOrder = (orderOverridden ? $("order").value : orders[idx]).split(",");
     var done = progress.completedCalls || [];
     startIdx = 0;
     while (startIdx < plannedOrder.length && done.indexOf(startIdx + 1) >= 0) startIdx++;
-    if (startIdx > 0) {
-      $("brief-title").textContent = "Welcome back";
-      $("brief-body").innerHTML = "";
-      var p = document.createElement("p");
-      p.className = "setup-sub";
-      p.textContent = "You’ve finished " + startIdx + " of " + plannedOrder.length + " calls. The next customer calls as soon as you press the button.";
-      $("brief-body").appendChild(p);
-      $("brief-go").textContent = "Start call " + (startIdx + 1);
-    }
-    show("brief");
+    stopMeter();
+    openMic().catch(function () {});
+    track("briefed", { resume: startIdx > 0 });
+    startSession(me.firstName || "", plannedOrder, startIdx);
   }
 
   fetch("api/config")
@@ -321,14 +319,6 @@
   });
 
 
-  $("brief-go").addEventListener("click", function () {
-    stopMeter();
-    unlockAudio();
-    openMic().catch(function () {});
-    track("briefed", { resume: startIdx > 0 });
-    startSession(me.firstName || "", plannedOrder, startIdx);
-  });
-
   /* ---------------- the session ---------------- */
 
   function startSession(firstName, order, firstIdx) {
@@ -351,8 +341,8 @@
     show(null);
     $("stage").hidden = false;
     if (params.get("debug") === "1") showLog(true);
-    // the briefing's button is the go signal: the first call rings straight away
-    loadCall(firstIdx || 0, true);
+    // the first call waits for the participant to press the start button on the briefing card
+    loadCall(firstIdx || 0, false);
   }
 
   // Load the prototype for call i. autoStart: start the call without waiting for the participant.
@@ -370,6 +360,8 @@
     track("call_load", { n: call.n, client: client.id });
 
     var stage = $("stage");
+    // a call that starts on its own stays hidden until it's ringing, so the start card never flashes
+    stage.style.visibility = autoStart ? "hidden" : "";
     stage.onload = function () { hookPrototype(stage, autoStart); };
     stage.src = "prototypes/" + client.id + ".html";
 
@@ -377,6 +369,43 @@
     $("call-avatar").textContent = initials.toUpperCase();
     $("call-name").textContent = client.name;
     $("call").hidden = true;
+  }
+
+  // The briefing, shown on the prototype's "No active call" card before a session's first call
+  var BRIEF_CSS = ".tm-landing-card{max-width:560px;margin:16px}" +
+    ".sim-brief{display:flex;flex-direction:column;gap:12px;font:400 15px/1.5 'WNTL Text',Helvetica,Arial,sans-serif;color:#141414;" +
+    "padding-bottom:22px;margin-bottom:2px;border-bottom:1px solid #e5e5e5;width:100%}" +
+    ".sim-brief h2{margin:0;font:600 22px/1.25 'WNTL Text',Helvetica,Arial,sans-serif}" +
+    ".sim-brief p{margin:0;color:#5c5c5c}" +
+    ".sim-brief ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}";
+
+  function addBriefing(doc) {
+    var tries = 0;
+    (function put() {
+      var card = doc.querySelector(".tm-landing-card");
+      if (!card) { if (++tries < 40) setTimeout(put, 50); return; }
+      if (card.querySelector(".sim-brief")) return;
+      var box = doc.createElement("div");
+      box.className = "sim-brief";
+      var add = function (tag, text) { var e = doc.createElement(tag); e.textContent = text; box.appendChild(e); return e; };
+      if (callIdx > 0) {
+        add("h2", "Welcome back");
+        add("p", "You’ve finished " + callIdx + " of " + queue.length + " calls. When you’re ready, start the call and the next customer will ring.");
+      } else {
+        add("h2", "Your role");
+        add("p", "You’re a client relations agent at Lakeview Loan Servicing. When you start the call, a customer will ring.");
+        var ul = add("ul", "");
+        [
+          "Greet the caller, verify who they are, then help them with their question using the tool.",
+          "Talk to them the way you would on a real call. They’ll respond naturally.",
+          "Use the call controls at the top to mute, hold, transfer or end the call.",
+          "After each call there’s a short break. You can pause it if you need more time.",
+          "After the last call: a few short questions, then you’ll arrange your ideal side panel.",
+        ].forEach(function (t) { var li = doc.createElement("li"); li.textContent = t; ul.appendChild(li); });
+        add("p", "There’s no right or wrong. We’re testing the tool, not you.");
+      }
+      card.insertBefore(box, card.firstChild);
+    })();
   }
 
   function hookPrototype(stage, autoStart) {
@@ -393,8 +422,9 @@
     var sel = CFG.startSelector || "#tm-start";
 
     var logoStyle = doc.createElement("style");
-    logoStyle.textContent = ".shv-logo{cursor:pointer}";
+    logoStyle.textContent = ".shv-logo{cursor:pointer}" + BRIEF_CSS;
     (doc.head || doc.documentElement).appendChild(logoStyle);
+    if (!autoStart) addBriefing(doc);
 
     // Dead-click detection: a click that changes nothing on the page within a second. Parts of the page
     // that change on their own (the call timer, clocks) are learned while the participant is idle and
@@ -451,10 +481,10 @@
       var tries = 0;
       (function press() {
         var b = doc.querySelector(sel);
-        if (b && b.__seen && Date.now() - b.__seen > 700) { b.click(); return; }
+        if (b && b.__seen && Date.now() - b.__seen > 700) { b.click(); stage.style.visibility = ""; return; }
         if (b && !b.__seen) b.__seen = Date.now();
         if (++tries < 100) setTimeout(press, 100);
-        else showIdleCall();
+        else { stage.style.visibility = ""; showIdleCall(); }
       })();
     }
   }
