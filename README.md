@@ -27,6 +27,20 @@ Requires Node 18+. No `npm install` step. Use Chrome or Edge, and open the page 
 | --- | --- | --- |
 | `ELEVENLABS_API_KEY` | none | When set, the browser gets a short-lived conversation token per call from `/api/conversation-token`, so the key never reaches the browser. When unset, the browser connects with the agent ID, which only works if the agent is public (authentication off). |
 | `PORT` | `3000` | Server port. |
+| `SESSIONS_DIR` | `./sessions` | Where session logs are saved. Point it at a mounted volume when hosted. |
+| `RESEARCHER_KEY` | none | Enables `GET /api/sessions?key=…`, which downloads every saved log. Off when unset. |
+
+## Hosting on Railway
+
+`railway.json` sets the start command and health check; Railway supplies `PORT`.
+
+1. New Project → Deploy from GitHub repo → `superjoney/simulation` (branch `main`, or this branch).
+2. Variables: `RESEARCHER_KEY` (password for downloading logs), `SESSIONS_DIR=/data/sessions`, and
+   optionally `ELEVENLABS_API_KEY`.
+3. Attach a volume mounted at `/data`, so session logs survive redeploys.
+4. Settings → Networking → Generate Domain, and share that https link.
+
+Download every saved log as one JSON file at `https://<your-domain>/api/sessions?key=<RESEARCHER_KEY>`.
 
 ## Running a session
 

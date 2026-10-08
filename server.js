@@ -4,13 +4,17 @@
 // No dependencies: needs Node 18+ (global fetch).
 
 const http = require("http");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
 const PORT = Number(process.env.PORT) || 3000;
 const API_KEY = process.env.ELEVENLABS_API_KEY || "";
 const PUBLIC_DIR = path.join(__dirname, "public");
-const SESSIONS_DIR = path.join(__dirname, "sessions");
+// On Railway, point this at a mounted volume so logs survive redeploys.
+const SESSIONS_DIR = process.env.SESSIONS_DIR || path.join(__dirname, "sessions");
+// Set this to download every saved log at /api/sessions?key=<value>.
+const RESEARCHER_KEY = process.env.RESEARCHER_KEY || "";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -71,6 +75,24 @@ function saveSession(req, res) {
   });
 }
 
+function listSessions(req, res) {
+  const key = new URL(req.url, "http://x").searchParams.get("key") || "";
+  const ok = RESEARCHER_KEY && key.length === RESEARCHER_KEY.length &&
+    crypto.timingSafeEqual(Buffer.from(key), Buffer.from(RESEARCHER_KEY));
+  if (!ok) return sendJson(res, 403, { error: "forbidden" });
+  fs.readdir(SESSIONS_DIR, (err, names) => {
+    const logs = (err ? [] : names.filter((n) => n.endsWith(".json")).sort())
+      .map((n) => { try { return JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, n), "utf8")); } catch { return null; } })
+      .filter(Boolean);
+    res.writeHead(200, {
+      "Content-Type": MIME[".json"],
+      "Cache-Control": "no-store",
+      "Content-Disposition": `attachment; filename="sessions-${new Date().toISOString().slice(0, 10)}.json"`,
+    });
+    res.end(JSON.stringify(logs, null, 2));
+  });
+}
+
 function serveStatic(req, res) {
   const urlPath = decodeURIComponent(new URL(req.url, "http://x").pathname);
   let file = path.normalize(path.join(PUBLIC_DIR, urlPath));
@@ -97,6 +119,7 @@ http
     }
     if (pathname === "/api/conversation-token" && req.method === "GET") return conversationToken(req, res);
     if (pathname === "/api/sessions" && req.method === "POST") return saveSession(req, res);
+    if (pathname === "/api/sessions" && req.method === "GET") return listSessions(req, res);
     if (req.method === "GET" || req.method === "HEAD") return serveStatic(req, res);
     res.writeHead(405);
     res.end();
