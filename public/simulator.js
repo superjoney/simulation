@@ -199,6 +199,7 @@
   /* ---------------- the session ---------------- */
 
   function startSession(participantId, order) {
+    window.SIM_REP_NAME = participantId; // the prototypes' greeting reads this ("This is <name>")
     queue = order.map(function (id) { return BY_ID[id]; });
     log = {
       sessionId: new Date().toISOString().replace(/[:.]/g, "-"),

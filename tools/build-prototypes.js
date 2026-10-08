@@ -56,6 +56,11 @@ function common(t) {
     "body.shv-rc.shv-tight div:has(> .dv-card){padding-right:" + (371 + 13 + 22) + "px!important}\n" +
     "</style>\n<script id=\"shell-versions-shell\">");
 
+  // Greeting: "This is <em>your first name</em>" uses the name the participant typed on the start page
+  t = replace(t, "var CLIENT = {",
+    "var SIM_REP_FIRST = (function () { try { var n = window.parent && window.parent.SIM_REP_NAME; if (n) return String(n).trim().split(/\\s+/)[0].replace(/[<>&\"']/g, ''); } catch (e) {} return 'your first name'; })();\n  var CLIENT = {");
+  t = replace(t, "<em>your first name</em>", "<em>' + SIM_REP_FIRST + '</em>", 3);
+
   // Hooks that read the injected client profile (window.SIM_CLIENT)
   t = replace(t,
     "function contextHtml(withLoan, refined) {",
@@ -117,6 +122,8 @@ function forClient(t, id, c) {
   t = replace(t, "(444) 222 – 8888", c.phone, "any");
   t = replace(t, "456123789", c.loan, "any");
   t = replace(t, "Marcus Johnson", c.full, "any");
+  t = replace(t, "Payee = JOHNSON", "Payee = " + c.full.split(" ").pop().toUpperCase());
+  t = replace(t, "Payee JOHNSON", "Payee " + c.full.split(" ").pop().toUpperCase());
   if (c.first !== "Marcus") t = replace(t, "Marcus", c.first, "any");
 
   for (const [find, repl] of c.i02 || []) t = replace(t, find, repl);
@@ -124,7 +131,7 @@ function forClient(t, id, c) {
 }
 
 function check(t, id, c) {
-  const leftovers = ["Johnson", "Priya", "Dana Reyes", "4471", "(444) 222", "456123789"]
+  const leftovers = ["Johnson", "JOHNSON", "Priya", "Dana Reyes", "4471", "(444) 222", "456123789"]
     .concat(c.first === "Marcus" ? [] : ["Marcus"]);
   // classic/snapshot-only markup that rail-snapshot-2 hides is allowed to keep the old copy
   const visible = t.replace(/<x-dc[\s\S]*?<\/x-dc>/g, "");
