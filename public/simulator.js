@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-08.5"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-08.6"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -219,6 +219,7 @@
     if ($("audio-devices").hidden) { err.textContent = "Allow your microphone first."; err.hidden = false; return; }
     readDevices();
     stopMeter();
+    unlockAudio();
     openMic().catch(function () {});
     startSession($("participant").value.trim(), $("order").value.split(","));
   });
@@ -288,7 +289,7 @@
     doc.addEventListener("click", function (e) {
       var el = e.target && e.target.closest ? e.target : null;
       if (!el) return;
-      if (el.closest(sel)) { startCall(); return; }
+      if (el.closest(sel)) { unlockAudio(); startCall(); return; }
       if (el.closest(".shv-logo")) { goHome(); return; }
       var ctl = el.closest("button, a, [role=button], [role=tab], [role=option], [role=menuitem], label, summary, input, select");
       if (!ctl) return;
@@ -360,41 +361,58 @@
   /* ---------------- ring tone ----------------
      A phone ring (two short 440+480 Hz bursts, then a pause) from the moment a call comes in until the
      caller connects, on the speaker chosen at setup. */
+  // One audio channel for the whole session, opened during the Start click: browsers (Safari especially)
+  // keep a channel opened outside a click muted, which is why the ring has to be unlocked up front.
+  var audioCtx = null;
+  function unlockAudio() {
+    if (!window.AudioContext && !window.webkitAudioContext) return null;
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (devices.output && audioCtx.setSinkId) audioCtx.setSinkId(devices.output).catch(function () {});
+      // a silent blip inside the click is what actually unlocks playback
+      var b = audioCtx.createBufferSource();
+      b.buffer = audioCtx.createBuffer(1, 1, 22050);
+      b.connect(audioCtx.destination);
+      b.start(0);
+    }
+    if (audioCtx.state !== "running" && audioCtx.resume) audioCtx.resume().catch(function () {});
+    return audioCtx;
+  }
+
   var ring = null;
   function startRing() {
     stopRing();
-    if (!window.AudioContext) return;
-    var ctx = new AudioContext();
-    if (ctx.resume) ctx.resume().catch(function () {});
-    if (devices.output && ctx.setSinkId) ctx.setSinkId(devices.output).catch(function () {});
+    var ctx = unlockAudio(); if (!ctx) return;
     var env = ctx.createGain(), vol = ctx.createGain();
     env.gain.value = 0;
-    vol.gain.value = 0.12;
+    vol.gain.value = 0.3;
     env.connect(vol).connect(ctx.destination);
-    [440, 480].forEach(function (f) {
+    var oscs = [440, 480].map(function (f) {
       var o = ctx.createOscillator();
       o.frequency.value = f;
       o.connect(env);
       o.start();
+      return o;
     });
-    var t = ctx.currentTime + 0.05;
     function burst(at) {
       env.gain.setValueAtTime(0, at);
       env.gain.linearRampToValueAtTime(1, at + 0.02);
       env.gain.setValueAtTime(1, at + 0.4);
       env.gain.linearRampToValueAtTime(0, at + 0.42);
     }
-    // schedule rings 2.5s apart, a few seconds ahead at a time
-    ring = { ctx: ctx, next: t, timer: 0 };
+    // two short bursts every 2.5s, scheduled a few seconds ahead
+    var r = ring = { oscs: oscs, out: vol, next: ctx.currentTime + 0.05, timer: 0 };
     (function schedule() {
-      while (ring && ring.next < ctx.currentTime + 6) { burst(ring.next); burst(ring.next + 0.6); ring.next += 2.5; }
-      if (ring) ring.timer = setTimeout(schedule, 2000);
+      if (ring !== r) return;
+      while (r.next < ctx.currentTime + 6) { burst(r.next); burst(r.next + 0.6); r.next += 2.5; }
+      r.timer = setTimeout(schedule, 2000);
     })();
   }
   function stopRing() {
     if (!ring) return;
     clearTimeout(ring.timer);
-    ring.ctx.close();
+    ring.oscs.forEach(function (o) { try { o.stop(); } catch (e) {} });
+    ring.out.disconnect();
     ring = null;
   }
 
