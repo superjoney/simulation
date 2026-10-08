@@ -50,6 +50,7 @@ body { background: var(--bg); color: var(--text); }
 .btn { font: inherit; font-size: 15px; font-weight: 500; border-radius: 100px; padding: 11px 20px; cursor: pointer; border: 1px solid transparent; }
 .btn-primary { background: var(--dark); color: #fff; }
 .btn-primary:hover { background: #000; }
+.btn-primary:disabled { opacity: .4; cursor: not-allowed; }
 .btn-secondary { background: var(--surface); border-color: var(--border); color: var(--text); padding: 8px 14px; font-size: 14px; }
 .btn-secondary:hover { background: #f7f6f3; }
 .btn-link { border: 0; background: none; font: inherit; font-size: 13px; color: var(--subtle); cursor: pointer; }

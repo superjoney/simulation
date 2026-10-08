@@ -8,6 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
+  var VERSION = "2026-10-08.3"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -53,11 +54,20 @@
 
   var missing = (CFG.clients || []).filter(function (c) { return !c.agentId; }).map(function (c) { return c.name; });
   function studyInfo() {
-    $("study-info").textContent = perCall + " call" + (perCall === 1 ? "" : "s") + " per session · " + (CFG.breakSeconds || 10) + "s break · " +
+    $("study-info").textContent = "Version " + VERSION + " · " + perCall + " call" + (perCall === 1 ? "" : "s") + " per session · " + (CFG.breakSeconds || 10) + "s break · " +
       (server.tokenAuth ? "token auth" : "public agents") + (server.available ? "" : " · no server: logs download only") +
       (missing.length ? " · no agent yet for " + missing.join(", ") : "");
   }
   studyInfo();
+
+  // Opened straight from the folder (file://), the browser walls the prototype off from the simulator:
+  // the call controls double up and the microphone prompts on every request. It needs the server.
+  var fromFile = location.protocol === "file:";
+  if (fromFile) {
+    $("setup-error").textContent = "This page was opened as a file. In the project folder run “npm start”, then open http://localhost:3000.";
+    $("setup-error").hidden = false;
+    $("start-btn").disabled = true;
+  }
 
   fetch("api/config")
     .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
@@ -71,13 +81,29 @@
   // The chosen microphone stays open for the whole session. Holding it means the browser never asks for
   // permission again between calls (Safari, or Chrome's "Allow this time"), so the next call goes straight in.
   var micStream = null;
+  var nativeGUM = navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+    ? navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices) : null;
+  var VOICE = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+  if (nativeGUM) {
+    // The ElevenLabs SDK asks for the microphone itself (sometimes twice per call). Hand it a copy of the
+    // microphone the participant already allowed, so the browser never prompts again.
+    navigator.mediaDevices.getUserMedia = function (c) {
+      var t = micStream && micStream.getAudioTracks()[0];
+      if (t && t.readyState === "live" && c && c.audio && !c.video) return Promise.resolve(new MediaStream([t.clone()]));
+      return nativeGUM(c);
+    };
+  }
   var canPickSpeaker = typeof HTMLMediaElement !== "undefined" && "setSinkId" in HTMLMediaElement.prototype;
 
   $("audio-allow").addEventListener("click", function () {
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+    nativeGUM({ audio: VOICE }).then(function (stream) {
       micStream = stream;
       return listDevices();
     }).then(function () {
+      // select the microphone the browser actually opened, so the meter doesn't reopen it
+      var id = micStream.getAudioTracks()[0].getSettings().deviceId;
+      var opt = id && [].filter.call($("mic-select").options, function (o) { return o.value === id; })[0];
+      if (opt) { $("mic-select").value = id; readDevices(); }
       $("audio-allow").hidden = true;
       $("audio-msg").hidden = true;
       $("audio-devices").hidden = false;
@@ -127,8 +153,8 @@
     if (track && track.readyState === "live" && (!devices.input || (track.getSettings().deviceId || "") === devices.input)) {
       return Promise.resolve(micStream);
     }
-    var constraints = { audio: devices.input ? { deviceId: { exact: devices.input } } : true };
-    return navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+    var constraints = { audio: devices.input ? Object.assign({ deviceId: { exact: devices.input } }, VOICE) : VOICE };
+    return nativeGUM(constraints).then(function (stream) {
       if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
       micStream = stream;
       return stream;
@@ -187,6 +213,7 @@
   $("setup-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var err = $("setup-error");
+    if (fromFile) return;
     err.hidden = true;
     if (!CLIENTS.length) { err.textContent = "No callers are set up yet. Ask the researcher to add an agent ID."; err.hidden = false; return; }
     if ($("audio-devices").hidden) { err.textContent = "Allow your microphone first."; err.hidden = false; return; }
