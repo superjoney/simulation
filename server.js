@@ -13,6 +13,7 @@ const API_KEY = process.env.ELEVENLABS_API_KEY || "";
 const PUBLIC_DIR = path.join(__dirname, "public");
 // On Railway, point this at a mounted volume so logs survive redeploys.
 const SESSIONS_DIR = process.env.SESSIONS_DIR || path.join(__dirname, "sessions");
+// Set SIM_LABEL (e.g. "TEST") on a test copy: it shows as a badge so it's never mistaken for the live link.
 // Set this to download every saved log at /api/sessions?key=<value>.
 const RESEARCHER_KEY = process.env.RESEARCHER_KEY || "";
 
@@ -115,7 +116,7 @@ http
   .createServer((req, res) => {
     const { pathname } = new URL(req.url, "http://x");
     if (pathname === "/api/config" && req.method === "GET") {
-      return sendJson(res, 200, { tokenAuth: Boolean(API_KEY) });
+      return sendJson(res, 200, { tokenAuth: Boolean(API_KEY), label: process.env.SIM_LABEL || "" });
     }
     if (pathname === "/api/conversation-token" && req.method === "GET") return conversationToken(req, res);
     if (pathname === "/api/sessions" && req.method === "POST") return saveSession(req, res);

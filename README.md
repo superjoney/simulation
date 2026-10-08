@@ -28,6 +28,7 @@ Requires Node 18+. No `npm install` step. Use Chrome or Edge, and open the page 
 | `ELEVENLABS_API_KEY` | none | When set, the browser gets a short-lived conversation token per call from `/api/conversation-token`, so the key never reaches the browser. When unset, the browser connects with the agent ID, which only works if the agent is public (authentication off). |
 | `PORT` | `3000` | Server port. |
 | `SESSIONS_DIR` | `./sessions` | Where session logs are saved. Point it at a mounted volume when hosted. |
+| `SIM_LABEL` | none | Shows a badge (e.g. `TEST`) on every screen. Set it on test copies only. |
 | `RESEARCHER_KEY` | none | Enables `GET /api/sessions?key=…`, which downloads every saved log. Off when unset. |
 
 ## Hosting on Railway
