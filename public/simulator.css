@@ -124,3 +124,7 @@ body { background: var(--bg); color: var(--text); }
 .log li { line-height: 1.45; }
 .log li b { display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; color: var(--subtle); }
 .log li.ev { color: var(--subtle); font-style: italic; }
+
+/* test copy marker (SIM_LABEL) */
+.env-badge { position: fixed; right: 12px; bottom: 12px; z-index: 30; padding: 4px 10px; border-radius: 100px; background: #b45309; color: #fff;
+  font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.2); }

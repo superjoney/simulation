@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-08.7"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-08.8"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -71,7 +71,18 @@
 
   fetch("api/config")
     .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-    .then(function (c) { server = { available: true, tokenAuth: !!c.tokenAuth }; })
+    .then(function (c) {
+      server = { available: true, tokenAuth: !!c.tokenAuth };
+      if (c.label) {
+        // test copies say so on every screen
+        var b = document.createElement("div");
+        b.className = "env-badge";
+        b.textContent = c.label;
+        b.title = "This is not the live simulator";
+        document.body.appendChild(b);
+        document.title = c.label + " · " + document.title;
+      }
+    })
     .catch(function () {})
     .then(studyInfo);
 
