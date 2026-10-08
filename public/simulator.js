@@ -100,7 +100,6 @@
     if (progress.consented) {
       $("intro-title").textContent = "Welcome back";
       $("intro-sub").textContent = "Check your audio, then pick up where you left off.";
-      $("intro-needs").hidden = true;
       $("consent-box").hidden = true;
       $("audio-step").hidden = false;
     }
