@@ -7,6 +7,7 @@
   var NAMES = {};
   (CFG.clients || []).forEach(function (c) { NAMES[c.id] = c.name; });
   var data = null, filter = "all", query = "", refreshTimer = 0;
+  var selected = {};
   var STUDY = { clients: {}, outcomes: [] }, bClient = null, blScope = "all", base = null;
 
   /* ---------------- helpers ---------------- */
@@ -101,7 +102,7 @@
   document.querySelectorAll(".tabs button").forEach(function (b) {
     b.addEventListener("click", function () {
       document.querySelectorAll(".tabs button").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
-      ["overview", "behaviour", "survey", "baseline", "participants", "invites"].forEach(function (t) { $("tab-" + t).hidden = t !== b.getAttribute("data-tab"); });
+      ["overview", "behaviour", "survey", "panel", "baseline", "participants", "invites"].forEach(function (t) { $("tab-" + t).hidden = t !== b.getAttribute("data-tab"); });
       if (b.getAttribute("data-tab") === "baseline") loadBaseline();
     });
   });
@@ -113,7 +114,7 @@
     return api("overview").then(function (d) {
       data = d;
       $("updated").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
-      renderOverview(); renderBehaviour(); renderSurvey(); renderPeople(); renderInvites();
+      renderOverview(); renderBehaviour(); renderSurvey(); renderPanel(); renderPeople(); renderInvites();
       if (!$("tab-baseline").hidden) loadBaseline();
     }).catch(function () {});
   }
@@ -125,7 +126,7 @@
     var tiles = [
       ["Invited", t.invited, t.notListed ? t.notListed + " more not on the list" : ""],
       ["Started", t.started, t.invited ? pct(t.started / t.invited) + " of invited" : ""],
-      ["Completed", t.completed, "both calls and the survey"],
+      ["Completed", t.completed, "calls, survey and panel"],
       ["Completion rate", pct(t.completionRate), "of those who started"],
       ["Paused before a call", t.pausedNext, t.medianPauseMs ? "median pause " + dur(t.medianPauseMs) : ""],
     ];
@@ -319,6 +320,103 @@
     });
   }
   $("sv-search").addEventListener("input", function () { svQuery = this.value; renderSurvey(); });
+
+  /* ---------------- build your panel ---------------- */
+
+  var ACT = CFG.activity || { modules: [] }, pnFilter = "";
+  function modName(id, st) {
+    var m = ACT.modules.filter(function (x) { return x.id === id; })[0];
+    if (m) return m.name;
+    var c = st && (st.custom || []).filter(function (x) { return x.id === id; })[0];
+    return c ? c.name + " (their idea)" : id;
+  }
+  function modCurrent(id) { var m = ACT.modules.filter(function (x) { return x.id === id; })[0]; return !!(m && m.current); }
+  function hasText(a) { return !!(a && ((a.text || "").trim() || (a.recordings || []).length)); }
+
+  function renderPanel() {
+    var people = data.participants.filter(function (s) { return s.panel && s.panel.state; });
+    var submitted = people.filter(function (s) { return s.panel.submittedAt; });
+    var n = people.length;
+    var stats = {};
+    ACT.modules.forEach(function (m) { stats[m.id] = { id: m.id, kept: 0, pos: [], stars: 0, score: 0, comments: 0 }; });
+    var ideas = [], comments = [];
+    people.forEach(function (s) {
+      var st = s.panel.state;
+      st.order.forEach(function (id, i) { if (stats[id]) { stats[id].kept++; stats[id].pos.push(i + 1); } });
+      st.stars.forEach(function (id, i) { if (stats[id]) { stats[id].stars++; stats[id].score += Math.max(1, 3 - i); } });
+      Object.keys(st.comments || {}).forEach(function (id) {
+        if (!hasText(st.comments[id])) return;
+        if (stats[id]) stats[id].comments++;
+        comments.push({ s: s, id: id, a: st.comments[id], name: modName(id, st) });
+      });
+      if (hasText(st.general)) comments.push({ s: s, id: "general", a: st.general, name: "General comment" });
+      (st.custom || []).forEach(function (c) { ideas.push({ s: s, c: c, kept: st.order.indexOf(c.id) >= 0, a: (st.comments || {})[c.id] }); });
+    });
+    var avg = function (xs) { return xs.length ? xs.reduce(function (a, b) { return a + b; }, 0) / xs.length : null; };
+    var avgSize = avg(people.map(function (s) { return s.panel.state.order.length; }));
+    var tiles = [
+      ["Started", n, ""], ["Finished", submitted.length, n ? pct(submitted.length / n) + " of started" : ""],
+      ["Modules per panel", avgSize == null ? "—" : (Math.round(avgSize * 10) / 10).toString(), "today’s panel has " + ACT.modules.filter(function (m) { return m.current; }).length],
+      ["Their own ideas", ideas.length, ""], ["Comments", comments.length, comments.filter(function (c) { return c.a.recordings && c.a.recordings.length; }).length + " spoken"],
+    ];
+    $("pn-kpis").innerHTML = "";
+    tiles.forEach(function (x) { $("pn-kpis").appendChild(el("div", { class: "kpi" }, [el("div", { class: "kpi-l", text: x[0] }), el("div", { class: "kpi-v", text: String(x[1]) }), el("div", { class: "kpi-s", text: x[2] })])); });
+
+    var rows = Object.keys(stats).map(function (k) { var x = stats[k]; x.avgPos = avg(x.pos); return x; })
+      .sort(function (a, b) { return b.kept - a.kept || b.score - a.score || (a.avgPos || 99) - (b.avgPos || 99); });
+    var cons = $("pn-consensus"); cons.innerHTML = "";
+    var group = rows.filter(function (x) { return n && x.kept / n >= 0.5; }).sort(function (a, b) { return a.avgPos - b.avgPos; });
+    if (!group.length) cons.appendChild(el("li", { class: "muted", text: n ? "No module was kept by at least half." : "No one has started the activity yet." }));
+    group.forEach(function (x) { cons.appendChild(el("li", {}, [modName(x.id), modCurrent(x.id) ? null : el("span", { class: "pill new", text: "New" }), el("span", { class: "muted", text: pct(x.kept / n) + " kept" + (x.stars ? " · ★" + x.stars : "") })])); });
+
+    var t = $("pn-modules"); t.innerHTML = "";
+    t.appendChild(el("thead", {}, [el("tr", {}, ["Module", "Kept", "Position", "Stars", "Score", "Comments"].map(function (h, i) { return el("th", { class: i > 1 ? "r" : "", text: h }); }))]));
+    var tb = el("tbody");
+    rows.forEach(function (x) {
+      var w = n ? Math.round(100 * x.kept / n) : 0;
+      tb.appendChild(el("tr", {}, [
+        el("td", {}, [modName(x.id), " ", el("span", { class: "pill " + (modCurrent(x.id) ? "" : "new"), text: modCurrent(x.id) ? "Today" : "New" })]),
+        el("td", {}, [el("div", { class: "barcell" }, [el("div", { class: "fn-bar" }, [el("i", { style: "width:" + w + "%" })]), el("span", { text: n ? w + "%" : "—" })])]),
+        el("td", { class: "r", text: x.avgPos == null ? "—" : (Math.round(x.avgPos * 10) / 10).toString() }),
+        el("td", { class: "r", text: String(x.stars) }), el("td", { class: "r", text: String(x.score) }), el("td", { class: "r", text: String(x.comments) }),
+      ]));
+    });
+    t.appendChild(tb);
+
+    $("pn-ideas-n").textContent = ideas.length ? ideas.length + " idea" + (ideas.length === 1 ? "" : "s") : "";
+    var il = $("pn-ideas"); il.innerHTML = "";
+    if (!ideas.length) il.appendChild(el("li", { class: "muted", text: "None yet." }));
+    ideas.forEach(function (x) {
+      il.appendChild(el("li", {}, [
+        el("div", { class: "sv-who" }, [personLink(x.s), x.kept ? null : el("span", { class: "pill", text: "added, then removed" })]),
+        el("div", { class: "sv-text" }, [el("strong", { text: x.c.name }), x.c.desc ? " — " + x.c.desc : ""]),
+        hasText(x.a) ? el("div", { class: "sv-text muted", text: x.a.text || "(recording)" }) : null,
+        hasText(x.a) ? players(x.s.code, x.a) : null,
+      ]));
+    });
+
+    var sel = $("pn-filter"), keep = pnFilter;
+    sel.innerHTML = "";
+    var ids = []; comments.forEach(function (c) { if (ids.indexOf(c.id) < 0) ids.push(c.id); });
+    [["", "All modules (" + comments.length + ")"]].concat(ids.map(function (id) {
+      var c = comments.filter(function (x) { return x.id === id; });
+      return [id, c[0].name + " (" + c.length + ")"];
+    })).forEach(function (o) { var op = el("option", { value: o[0], text: o[1] }); if (o[0] === keep) op.selected = true; sel.appendChild(op); });
+    var cl = $("pn-comments"); cl.innerHTML = "";
+    var shown = comments.filter(function (c) { return !pnFilter || c.id === pnFilter; });
+    if (!shown.length) cl.appendChild(el("li", { class: "muted", text: "No comments yet." }));
+    shown.forEach(function (c) {
+      cl.appendChild(el("li", {}, [
+        el("div", { class: "sv-who" }, [el("strong", { text: c.name }), personLink(c.s), el("span", { class: "pill", text: howTag(c.a) })]),
+        c.a.text ? el("div", { class: "sv-text", text: c.a.text }) : el("div", { class: "sv-text muted", text: "(no text: listen to the recording)" }),
+        players(c.s.code, c.a),
+      ]));
+    });
+  }
+  function personLink(s) {
+    return el("a", { href: "#", text: s.firstName ? s.firstName + " · " + s.email : s.email, onclick: function (e) { e.preventDefault(); openDetail(s.code); } });
+  }
+  $("pn-filter").addEventListener("change", function () { pnFilter = this.value; renderPanel(); });
 
   /* ---------------- baseline ---------------- */
 
@@ -574,6 +672,33 @@
       b.appendChild(sc);
     }
 
+    if (s.panel && s.panel.state) {
+      var st = s.panel.state;
+      var pc = el("div", { class: "card" }, [el("div", { class: "card-h" }, [el("h2", { text: "Their panel" }),
+        el("span", { class: "pill " + (s.panel.submittedAt ? "ok" : "warn"), text: s.panel.submittedAt ? "Finished " + when(s.panel.submittedAt) : "Not finished" })])]);
+      pc.appendChild(el("ol", { class: "pn-mine" }, st.order.map(function (id) {
+        var star = st.stars.indexOf(id), cm = (st.comments || {})[id];
+        return el("li", {}, [
+          el("div", { class: "row" }, [el("strong", { text: modName(id, st) }),
+            modCurrent(id) ? null : el("span", { class: "pill new", text: /^custom-/.test(id) ? "Their idea" : "Added" }),
+            star >= 0 ? el("span", { class: "pill warn", text: "★ " + (star + 1) }) : null]),
+          hasText(cm) ? el("div", { class: "sv-text", text: cm.text || "(recording)" }) : null,
+          hasText(cm) ? players(s.code, cm) : null,
+        ]);
+      })));
+      var removed = ACT.modules.filter(function (m) { return m.current && st.order.indexOf(m.id) < 0; });
+      if (removed.length) pc.appendChild(el("p", { class: "note", text: "Removed: " + removed.map(function (m) { return m.name; }).join(", ") }));
+      Object.keys(st.comments || {}).filter(function (id) { return st.order.indexOf(id) < 0 && hasText(st.comments[id]); }).forEach(function (id) {
+        pc.appendChild(el("div", { class: "note" }, [el("strong", { text: modName(id, st) + " (not in panel): " }), st.comments[id].text || "(recording)"]));
+        var pl = players(s.code, st.comments[id]); if (pl) pc.appendChild(pl);
+      });
+      if (hasText(st.general)) {
+        pc.appendChild(el("div", { class: "note" }, [el("strong", { text: "General: " }), st.general.text || "(recording)"]));
+        var pg = players(s.code, st.general); if (pg) pc.appendChild(pg);
+      }
+      b.appendChild(pc);
+    }
+
     var t0 = events.length ? Date.parse(events[0].at || events[0].rt) : 0;
     var shown = events.filter(function (e) { return e.type !== "transcript"; });
     b.appendChild(el("div", { class: "card" }, [
@@ -587,11 +712,18 @@
         }))]),
     ]));
 
-    b.appendChild(el("div", { class: "actions" }, [el("button", { class: "btn btn-danger", type: "button", text: "Remove participant",
-      onclick: function () {
-        if (!confirm("Remove " + s.email + "? Their link stops working. Their data is kept on the server but hidden from the dashboard.")) return;
-        api("remove", { method: "POST", body: JSON.stringify({ code: s.code }) }).then(function () { closeDetail(); toast("Removed"); load(); });
-      } })]));
+    b.appendChild(el("div", { class: "actions" }, [el("button", { class: "btn btn-danger", type: "button", text: "Delete participant",
+      onclick: function () { deleteParticipants([s]); } })]));
+  }
+
+  // Deleting removes the record, the event log and any recordings. It can't be undone.
+  function deleteParticipants(list) {
+    if (!list.length) return;
+    var what = list.length === 1 ? list[0].email : list.length + " participants";
+    if (!confirm("Delete " + what + "? Their link stops working and all their data (calls, survey answers, recordings) is deleted. This can’t be undone.")) return;
+    api("remove", { method: "POST", body: JSON.stringify({ codes: list.map(function (x) { return x.code; }) }) }).then(function (r) {
+      closeDetail(); selected = {}; toast(r.removed.length === 1 ? "Deleted" : r.removed.length + " deleted"); load();
+    }).catch(function (e) { toast("Couldn’t delete: " + e.message); });
   }
 
   function codeRow(s, c, a) {
@@ -654,16 +786,31 @@
     download("study-links.csv", csv, "text/csv");
   });
 
+  $("delete-selected").addEventListener("click", function () {
+    deleteParticipants(data.participants.filter(function (s) { return selected[s.code]; }));
+  });
+
   function renderInvites() {
     var rows = linkRows();
     $("invite-count").textContent = rows.filter(function (s) { return s.listed; }).length + " invited" +
       (rows.some(function (s) { return !s.listed; }) ? " · " + rows.filter(function (s) { return !s.listed; }).length + " not on the list" : "");
     var t = $("links"); t.innerHTML = "";
-    t.appendChild(el("thead", {}, [el("tr", {}, ["Email", "First name", "Personal link", "Status", ""].map(function (h) { return el("th", { text: h }); }))]));
+    Object.keys(selected).forEach(function (c) { if (!rows.some(function (s) { return s.code === c; })) delete selected[c]; });
+    var all = el("input", { type: "checkbox", "aria-label": "Select all" });
+    all.checked = rows.length > 0 && rows.every(function (s) { return selected[s.code]; });
+    all.addEventListener("change", function () { rows.forEach(function (s) { if (all.checked) selected[s.code] = true; else delete selected[s.code]; }); renderInvites(); });
+    t.appendChild(el("thead", {}, [el("tr", {}, [el("th", {}, [all])].concat(["Email", "First name", "Personal link", "Status", ""].map(function (h) { return el("th", { text: h }); })))]));
+    var n = Object.keys(selected).length;
+    $("delete-selected").hidden = !n;
+    $("delete-selected").textContent = "Delete " + n + " selected";
     var tb = el("tbody");
-    if (!rows.length) tb.appendChild(el("tr", {}, [el("td", { class: "empty", colspan: "5", text: "No participants yet. Add invites above." })]));
+    if (!rows.length) tb.appendChild(el("tr", {}, [el("td", { class: "empty", colspan: "6", text: "No participants yet. Add invites above." })]));
     rows.forEach(function (s) {
+      var cb = el("input", { type: "checkbox", "aria-label": "Select " + s.email });
+      cb.checked = !!selected[s.code];
+      cb.addEventListener("change", function () { if (cb.checked) selected[s.code] = true; else delete selected[s.code]; renderInvites(); });
       tb.appendChild(el("tr", {}, [
+        el("td", {}, [cb]),
         el("td", {}, [s.email, s.listed ? null : el("span", { class: "sub2", text: "not on invite list" })]),
         el("td", { class: s.firstName ? "" : "muted", text: s.firstName || "missing" }),
         el("td", {}, [el("div", { class: "link-cell" }, [el("code", { text: "/?p=" + s.code }),

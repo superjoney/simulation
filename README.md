@@ -55,8 +55,8 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
 3. For Slack or anyone without a personal link, share the **Shared link** (the site's home page).
    Participants enter their email and first name; anyone not on the invite list still takes part
    but is flagged.
-4. Participants see one welcome screen (audio check and consent), a short briefing whose button rings
-   the first call, two calls, then the survey. Call order is counterbalanced automatically. If they
+4. Participants see one welcome screen (consent, then the audio check appears), a short briefing
+   whose button rings the first call, two calls, the survey, then the Build-your-panel activity. Call order is counterbalanced automatically. If they
    refresh or come back later, they resume where they left off (including half-finished survey
    answers); once finished, the link says the study is complete.
 5. **Overview** shows the funnel, completion, pauses and per-customer medians (handle time, time to
@@ -70,7 +70,13 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
    fix it. The Survey tab shows each question's results, every answer with "typed" or "spoken", and
    the recordings. Browser dictation uses the browser maker's speech service (Google for Chrome);
    the saved recordings stay on this server.
-7. **Behaviour** (per customer):
+7. **Panel** (Build your panel): after the survey, participants start from today's right panel and
+   make it theirs: drag or arrow to reorder, remove, add modules from a library or describe their
+   own, star up to 3 must-haves, and comment on any module (typed or spoken). Modules are placeholders
+   in `public/config.js` (`activity.modules`; `current: true` = in today's panel). The Panel tab shows
+   the group's panel (modules at least half kept, in average order), each module's keep rate,
+   position, stars and comments, participants' own ideas, and every comment with its recording.
+8. **Behaviour** (per customer):
    - *Anchor questions*: each caller says two lines word for word (see the scripts). The dashboard
      finds them in the transcript and times the participant's first reply, any hold, and the related
      playbook step. Each call gets an automatic outcome (answered without hold / held then answered /
@@ -81,13 +87,17 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
    - *Click quality*: rage clicks (3+ in a second in one spot) and dead clicks (nothing on the page
      changed within a second), with where they happened.
    - *Feature use*: which controls people used, in which area of the screen, and when first.
-8. **Baseline**: upload a CSV export from the current system (one row per call), map its columns
+9. **Baseline**: upload a CSV export from the current system (one row per call), map its columns
    (handle time, time to verify, holds, hold time, transferred, call type) and match its call types
    to the scenarios. The tab then compares the current system with the prototype, overall and per
    scenario. Times can be seconds, minutes, or `m:ss` / `h:mm:ss`.
 
-Data is stored in `SESSIONS_DIR`: `participants.json` (including survey answers),
-`events/<code>.jsonl`, `audio/<code>/` (survey recordings) and `baseline.json`.
+**Deleting participants**: from a participant's detail (**Delete participant**) or several at once on
+the Invites tab (tick them, then **Delete selected**). This deletes their record, event log, survey
+and panel answers, and recordings, and can't be undone.
+
+Data is stored in `SESSIONS_DIR`: `participants.json` (including survey and panel answers),
+`events/<code>.jsonl`, `audio/<code>/` (spoken answers) and `baseline.json`.
 
 ## Running a session
 
@@ -99,7 +109,8 @@ Data is stored in `SESSIONS_DIR`: `participants.json` (including survey answers)
 3. When the call ends, a card counts down 10 seconds, then the next customer's prototype loads and
    their call starts on its own. **Start now** skips the wait; **Pause next call** holds it (for
    wrap-up notes) until **Start next call** is pressed.
-4. After the last call comes the survey; submitting it completes the study.
+4. After the last call come the survey and the Build-your-panel activity; finishing the activity
+   completes the study.
 5. The rocket logo in the prototype goes back to the start page (with a confirm during a call).
 
 **Study settings** (small link under Start) sets the call order, e.g. Ruth → Marcus or
@@ -183,7 +194,8 @@ in the bottom-left corner that can be dragged anywhere.
 - `lib/store.js`, `lib/metrics.js`, `lib/auth.js`: participant store, metrics, researcher sign-in
 - `lib/study.js`: anchor lines and answer checks per customer; `lib/baseline.js`: baseline CSV and comparison
 - `public/admin/`: researcher dashboard
-- `public/index.html`, `simulator.js`, `simulator.css`: setup screen, call sequence, session log
+- `public/index.html`, `simulator.js`, `simulator.css`: welcome screen, call sequence, survey, session log
+- `public/panel-activity.js`: the Build-your-panel activity
 - `public/config.js`: customers, agents and session settings
 - `public/prototypes/`: generated per-customer prototypes and the call controls
 - `prototypes-src/`: the original prototype export

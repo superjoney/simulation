@@ -66,4 +66,52 @@ window.SIM_CONFIG = {
       { id: "change", type: "open", text: "If you could change one thing about the tool, what would it be?" },
     ],
   },
+
+  // Co-creation activity after the survey: participants arrange their own right panel.
+  // Modules marked current: true start in the panel, in this order (today's right panel);
+  // the rest wait in the library. Placeholder modules: rename, add or remove freely.
+  // preview: a few [label, value] rows drawn on the card to suggest what the module shows.
+  activity: {
+    title: "Build your ideal panel",
+    intro: "This is the panel from the calls you just took. Make it yours: drag modules to reorder them, remove what you wouldn’t use, and add anything that would help. Star up to 3 you couldn’t live without. Leave a comment on any module, typed or spoken.",
+    maxStars: 3,
+    generalQuestion: "Anything missing, or anything else about how the panel should work?",
+    modules: [
+      { id: "why", name: "Why they’re calling", current: true, desc: "The likely reason for the call, from recent account activity.",
+        preview: [["Reason", "Payment going up after shortage"], ["Signals", "Shortage paid · analysis ran"]] },
+      { id: "recap", name: "Recap", current: true, desc: "A short AI summary of the last contacts.",
+        preview: [["Last contact", "Escrow statement questions"], ["Outcome", "Statement re-sent"]] },
+      { id: "activity", name: "Activity", current: true, desc: "Recent payments, deposits and account events.",
+        preview: [["Escrow deposit", "$216.65"], ["Payment cleared", "$1,425.88"]] },
+      { id: "payments", name: "Payments", current: true, desc: "Last paid, escrow per month, next due.",
+        preview: [["Last paid", "$1,425.88"], ["Next due", "Nov 1"]] },
+      { id: "upcoming", name: "Upcoming changes", current: true, desc: "Payment changes, tax and insurance due dates.",
+        preview: [["Payment change", "Dec 1"], ["Taxes due", "Dec 1"]] },
+      { id: "taxes", name: "Taxes & insurance", current: true, desc: "Tax and insurance bills and carriers.",
+        preview: [["Taxes", "$2,946.84/yr"], ["Insurance", "$1,486/yr"]] },
+      { id: "summary", name: "Call summary", current: true, desc: "Comment codes and a summary that fill in as you work.",
+        preview: [["Codes", "EASP · CDOC"], ["Summary", "Drafting…"]] },
+      { id: "notes", name: "Notes", current: true, desc: "Your own notes for this call.",
+        preview: [["Note", "Client wants Dec amount"]] },
+
+      { id: "transcript", name: "Live transcript", desc: "What the caller and you are saying, as you say it.",
+        preview: [["Caller", "“My payment still went up…”"], ["You", "“Let me check that.”"]] },
+      { id: "nextstep", name: "Suggested next step", desc: "The next action the playbook recommends, and why.",
+        preview: [["Next", "Add EASP to remove the spread"], ["Because", "Shortage paid in full"]] },
+      { id: "search", name: "Knowledge search", desc: "Search knowledge articles without leaving the call.",
+        preview: [["Search", "spread charge"], ["Top result", "KA-02740"]] },
+      { id: "sentiment", name: "Caller sentiment", desc: "How the caller seems to be feeling, from their voice.",
+        preview: [["Now", "Frustrated → calmer"]] },
+      { id: "history", name: "Previous contacts", desc: "Every call, chat and email from this client.",
+        preview: [["Oct 3", "Call · escrow question"], ["Sep 28", "Email · statement"]] },
+      { id: "compliance", name: "Compliance checklist", desc: "Required disclosures and whether you’ve covered them.",
+        preview: [["Mini-Miranda", "Done"], ["Recorded line", "Done"]] },
+      { id: "actions", name: "Quick actions", desc: "One-click actions: send statement, schedule a callback, open a case.",
+        preview: [["Send statement", "›"], ["Schedule callback", "›"]] },
+      { id: "contacts", name: "Transfer & escalation contacts", desc: "Who to transfer to, their hours and wait times.",
+        preview: [["Home Loan Expert", "~2 min wait"], ["Escrow Dept", "Open"]] },
+      { id: "targets", name: "Call timer & targets", desc: "Time on call against handle-time goals.",
+        preview: [["On call", "3:12"], ["Target", "6:00"]] },
+    ],
+  },
 };

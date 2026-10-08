@@ -11,7 +11,7 @@
   <main id="intro" class="setup" hidden>
     <form id="intro-form" class="setup-card">
       <h1 id="intro-title">Welcome to the call center study</h1>
-      <p class="setup-sub" id="intro-sub">Thanks for taking part. You’ll play a client relations agent and take two short customer calls using a new tool we’re designing, then answer a few questions. It takes about 20–25 minutes.</p>
+      <p class="setup-sub" id="intro-sub">Thanks for taking part. You’ll play a client relations agent and take two short customer calls using a new tool we’re designing, then answer a few questions and sketch your ideal version of the tool’s side panel. It takes about 25–30 minutes.</p>
 
       <div class="needs" id="intro-needs">
         <strong>You’ll need</strong>
@@ -31,7 +31,12 @@
         <input id="participant" name="participant" autocomplete="given-name">
       </label>
 
-      <fieldset class="field devices">
+      <div class="consent" id="consent-box">
+        <p>We’ll record your voice during the calls, what you click in the tool, and your answers. Recordings are used only for this research and are seen only by the research team. <em>(Placeholder: final consent wording to come from research operations.)</em></p>
+        <label class="check"><input type="checkbox" id="consent"> <span>I agree to take part and to be recorded.</span></label>
+      </div>
+
+      <fieldset class="field devices" id="audio-step" hidden>
         <legend>Check your audio</legend>
         <button type="button" id="audio-allow" class="btn btn-secondary">Allow microphone</button>
         <p id="audio-msg" class="field-note">Your browser will ask for permission to use your microphone.</p>
@@ -56,11 +61,6 @@
           </div>
         </div>
       </fieldset>
-
-      <div class="consent" id="consent-box">
-        <p>We’ll record your voice during the calls, what you click in the tool, and your answers. Recordings are used only for this research and are seen only by the research team. <em>(Placeholder: final consent wording to come from research operations.)</em></p>
-        <label class="check"><input type="checkbox" id="consent"> <span>I agree to take part and to be recorded.</span></label>
-      </div>
 
       <button type="submit" id="start-btn" class="btn btn-primary">Continue</button>
       <p id="intro-error" class="setup-error" role="alert" hidden></p>
@@ -88,7 +88,7 @@
           <li>Talk to them the way you would on a real call. They’ll respond naturally.</li>
           <li>Use the call controls at the top to mute, hold, transfer or end the call.</li>
           <li>After each call there’s a short break. You can pause it if you need more time.</li>
-          <li>After the last call, a few short questions. You can type or speak your answers.</li>
+          <li>After the last call: a few short questions, then you’ll arrange your ideal side panel. You can type or speak your answers.</li>
         </ul>
         <p class="setup-sub">There’s no right or wrong. We’re testing the tool, not you. The first call rings as soon as you press the button.</p>
       </div>
@@ -106,6 +106,42 @@
       <p id="survey-error" class="setup-error" role="alert" hidden></p>
       <p class="field-note" id="survey-saved" role="status"></p>
     </form>
+  </main>
+
+  <!-- 4 · Build your panel (co-creation activity) -->
+  <main id="panel" class="pa" hidden>
+    <header class="pa-head">
+      <div>
+        <h1 id="pa-title"></h1>
+        <p class="setup-sub" id="pa-intro"></p>
+      </div>
+      <div class="pa-done">
+        <button type="button" id="pa-finish" class="btn btn-primary">I’m done</button>
+        <span class="field-note" id="pa-saved" role="status"></span>
+      </div>
+    </header>
+    <div class="pa-body">
+      <section class="pa-col pa-mine" aria-labelledby="pa-mine-h">
+        <div class="pa-col-h"><h2 id="pa-mine-h">Your panel</h2><span class="field-note" id="pa-stars"></span></div>
+        <ol id="pa-list" class="pa-list" aria-describedby="pa-mine-hint"></ol>
+        <p class="field-note" id="pa-mine-hint">Drag to reorder, or use the arrows. Drop a module on the library to remove it.</p>
+      </section>
+      <section class="pa-col pa-lib" aria-labelledby="pa-lib-h">
+        <div class="pa-col-h"><h2 id="pa-lib-h">More modules</h2><span class="field-note">Drag into your panel, or press Add</span></div>
+        <div id="pa-library" class="pa-library"></div>
+        <form id="pa-custom" class="pa-custom">
+          <strong>Something else?</strong>
+          <p class="field-note">Describe a module you’d want, and add it to your panel.</p>
+          <input id="pa-custom-name" maxlength="80" placeholder="Name, e.g. “Escrow calculator”" aria-label="Module name">
+          <input id="pa-custom-desc" maxlength="400" placeholder="What it would show or do (optional)" aria-label="What it would do">
+          <button type="submit" class="btn btn-secondary">Add my module</button>
+        </form>
+        <div class="pa-general">
+          <strong id="pa-general-q"></strong>
+          <div id="pa-general"></div>
+        </div>
+      </section>
+    </div>
   </main>
 
   <!-- Messages: invalid link, already completed, opened as a file -->
@@ -168,5 +204,6 @@
   <script src="config.js"></script>
   <script src="https://unpkg.com/@elevenlabs/client@1.27.0/dist/lib.iife.js"></script>
   <script src="simulator.js"></script>
+  <script src="panel-activity.js"></script>
 </body>
 </html>

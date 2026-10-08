@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-09.3"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-09.4"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -70,7 +70,7 @@
 
   /* ---------------- who is this: invite link (?p=CODE) or shared link + email ---------------- */
 
-  function show(id) { ["intro", "brief", "survey", "notice"].forEach(function (x) { $(x).hidden = x !== id; }); }
+  function show(id) { ["intro", "brief", "survey", "panel", "notice"].forEach(function (x) { $(x).hidden = x !== id; }); }
   function notice(title, body) { $("notice-title").textContent = title; $("notice-body").textContent = body; show("notice"); }
 
   function boot() {
@@ -92,6 +92,7 @@
     history.replaceState(null, "", "?p=" + me.code + (params.get("debug") ? "&debug=1" : "") + (orderOverridden ? "&order=" + encodeURIComponent($("order").value) : ""));
     track("opened", { via: via, listed: me.listed, ua: navigator.userAgent.slice(0, 200), screen: screen.width + "x" + screen.height });
     if (progress.done) return notice("You’ve completed the study", "Thank you for taking part. You can close this tab.");
+    if (progress.surveyDone && window.SimPanel && window.SimPanel.enabled()) return window.SimPanel.start(d.panel);
     if (progress.callsDone) return showSurvey(d.survey);
     if (!route) return;
     // first names come from the invite list; ask only when we don't have one
@@ -101,9 +102,16 @@
       $("intro-sub").textContent = "Check your audio, then pick up where you left off.";
       $("intro-needs").hidden = true;
       $("consent-box").hidden = true;
+      $("audio-step").hidden = false;
     }
     show("intro");
   }
+
+  // the audio check appears once they've agreed
+  $("consent").addEventListener("change", function () {
+    $("audio-step").hidden = !this.checked && !$("consent-box").hidden;
+    if (this.checked) { $("intro-error").hidden = true; $("audio-allow").focus(); }
+  });
 
   // Welcome screen: email (shared link only), name (if unknown), audio check and consent in one go
   var plannedOrder = null, startIdx = 0;
@@ -114,8 +122,8 @@
     var fail = function (msg) { err.textContent = msg; err.hidden = false; };
     if (!$("email-field").hidden && !$("email").value.trim()) return fail("Enter the email your invitation was sent to.");
     if (!$("name-field").hidden && !$("participant").value.trim()) return fail("Enter your first name.");
-    if ($("audio-devices").hidden) return fail("Allow your microphone first, so you can talk to the callers.");
     if (!$("consent-box").hidden && !$("consent").checked) return fail("Please tick the box to agree before continuing.");
+    if ($("audio-devices").hidden) return fail("Allow your microphone first, so you can talk to the callers.");
     if (!CLIENTS.length) return fail("No callers are set up yet. Ask the research team to add an agent ID.");
 
     var ready = me ? Promise.resolve(true) : fetch("api/participant/identify", {
@@ -208,6 +216,7 @@
       if (opt) { $("mic-select").value = id; readDevices(); }
       $("audio-allow").hidden = true;
       $("audio-msg").hidden = true;
+      $("intro-error").hidden = true;
       $("audio-devices").hidden = false;
       startMeter();
     }).catch(function (err) {
@@ -836,6 +845,7 @@
     $("stage").hidden = true;
     $("survey-title").textContent = SURVEY.title || "A few questions";
     $("survey-intro").textContent = SURVEY.intro || "";
+    $("survey-submit").textContent = window.SimPanel && window.SimPanel.enabled() ? "Submit and continue" : "Submit answers";
     var box = $("survey-questions");
     box.innerHTML = "";
     SURVEY.questions.forEach(function (q, i) { box.appendChild(renderQuestion(q, i)); });
@@ -867,24 +877,32 @@
     }
 
     // open question: text box + speak
-    var ta = h("textarea", { rows: "3", "aria-labelledby": id + "-l", placeholder: "Type here, or press Speak" });
     head.id = id + "-l";
+    voiceField(q.id, a, queueSave, { label: id + "-l" }).forEach(function (n) { wrap.appendChild(n); });
+    return wrap;
+  }
+
+  // A text box with a Speak button: typed, or spoken (recorded, and transcribed live by the browser).
+  // key names the recording files; a is the answer object it fills; onChange saves.
+  function voiceField(key, a, onChange, opts) {
+    opts = opts || {};
+    var ta = h("textarea", { rows: String(opts.rows || 3), placeholder: opts.placeholder || "Type here, or press Speak" });
+    if (opts.label) ta.setAttribute("aria-labelledby", opts.label);
+    if (opts.ariaLabel) ta.setAttribute("aria-label", opts.ariaLabel);
     ta.value = a.text || "";
     ta.addEventListener("input", function () {
       a.text = ta.value;
-      if (!rec || rec.q !== q.id) a.typed = true;
-      queueSave();
+      if (!rec || rec.key !== key) a.typed = true;
+      onChange();
     });
     var btn = h("button", { type: "button", class: "btn btn-secondary q-speak", "aria-pressed": "false" }, [micIcon(), h("span", { text: "Speak" })]);
     var status = h("span", { class: "field-note q-status", role: "status" });
     if (a.recordings.length) status.textContent = recSaved(a);
     btn.addEventListener("click", function () {
-      if (rec && rec.q === q.id) stopRecording();
-      else startRecording(q, ta, btn, status);
+      if (rec && rec.key === key) stopRecording();
+      else startRecording(key, a, ta, btn, status, onChange);
     });
-    wrap.appendChild(ta);
-    wrap.appendChild(h("div", { class: "q-tools" }, [btn, status]));
-    return wrap;
+    return [ta, h("div", { class: "q-tools" }, [btn, status])];
   }
 
   function range(a, b) { var out = []; for (var x = a; x <= b; x++) out.push(x); return out; }
@@ -896,27 +914,26 @@
     return s;
   }
 
-  function startRecording(q, ta, btn, status) {
+  function startRecording(key, a, ta, btn, status, onChange) {
     if (rec) stopRecording();
-    var a = answer(q.id);
     openMic().then(function (stream) {
       var types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
       var type = window.MediaRecorder && MediaRecorder.isTypeSupported ? types.filter(function (t) { return MediaRecorder.isTypeSupported(t); })[0] : "";
       var mr = new MediaRecorder(new MediaStream([stream.getAudioTracks()[0].clone()]), type ? { mimeType: type } : undefined);
       var chunks = [];
       mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
-      rec = { q: q.id, mr: mr, sr: null, started: Date.now(), timer: 0, btn: btn, status: status };
+      rec = { key: key, mr: mr, sr: null, started: Date.now(), timer: 0, btn: btn, status: status };
       var me2 = rec;
       mr.onstop = function () {
         mr.stream.getTracks().forEach(function (t) { t.stop(); });
         var blob = new Blob(chunks, { type: mr.mimeType || type || "audio/webm" });
         if (!blob.size) return;
         status.textContent = "Saving recording…";
-        upload(q.id, blob).then(function (file) {
+        upload(key, blob).then(function (file) {
           a.recordings.push(file);
           status.textContent = recSaved(a);
-          track("survey_audio", { q: q.id, ms: Date.now() - me2.started, bytes: blob.size });
-          queueSave(true);
+          track("voice_audio", { key: key, ms: Date.now() - me2.started, bytes: blob.size });
+          onChange(true);
         }).catch(function () { status.textContent = "Couldn’t save the recording. Your text is still saved."; });
       };
       mr.start(1000);
@@ -934,7 +951,7 @@
           }
           ta.value = (base + finals + interim).replace(/\s+$/, interim ? "" : " ").trimStart();
           a.text = ta.value.trim(); a.dictated = true;
-          queueSave();
+          onChange();
         };
         // Chrome ends recognition after a pause; keep listening until they press Stop
         sr.onend = function () { if (rec === me2) { try { sr.start(); } catch (err) {} } };
@@ -951,7 +968,7 @@
         if (sec >= 300) return stopRecording();   // 5 minutes per recording
         me2.timer = setTimeout(tick, 500);
       })();
-      track("survey_speak", { q: q.id, dictation: !!Recognition });
+      track("voice_speak", { key: key, dictation: !!Recognition });
     }).catch(function () {
       status.textContent = "Couldn’t open your microphone. Allow it in the address bar, or type your answer.";
     });
@@ -993,6 +1010,20 @@
     });
   }
 
+  function finishStudy() {
+    track("done");
+    flush(true);
+    if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
+    notice("Thank you", "You’ve completed the study. You can close this tab.");
+  }
+
+  // what the Build-your-panel activity (panel-activity.js) uses from here
+  window.SimStudy = {
+    me: function () { return me; },
+    track: track, show: show, h: h, finish: finishStudy,
+    voiceField: voiceField, stopRecording: stopRecording,
+  };
+
   $("survey-form").addEventListener("submit", function (e) {
     e.preventDefault();
     stopRecording();
@@ -1013,10 +1044,8 @@
     setTimeout(function () {
       saveSurvey(true).then(function () {
         track("survey_submit");
-        track("done");
-        flush(true);
-        if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
-        notice("Thank you", "You’ve completed the study. You can close this tab.");
+        if (window.SimPanel && window.SimPanel.enabled()) return window.SimPanel.start(null);
+        finishStudy();
       }).catch(function () {
         $("survey-submit").disabled = false;
         err.textContent = "Couldn’t send your answers. Check your connection and try again.";

@@ -24,6 +24,17 @@ const SIM_LABEL = process.env.SIM_LABEL || "";
 const RESEARCHER_KEY = process.env.RESEARCHER_KEY || "";
 
 const store = createStore(SESSIONS_DIR);
+
+// The study settings the browser uses (public/config.js), read once for exports
+function loadStudyConfig() {
+  try {
+    const sandbox = { window: {} };
+    require("vm").runInNewContext(fs.readFileSync(path.join(PUBLIC_DIR, "config.js"), "utf8"), sandbox, { timeout: 1000 });
+    return sandbox.window.SIM_CONFIG || {};
+  } catch (e) { console.warn("Couldn't read public/config.js:", e.message); return {}; }
+}
+const STUDY_CONFIG = loadStudyConfig();
+const PANEL_CURRENT = ((STUDY_CONFIG.activity || {}).modules || []).filter((m) => m.current).map((m) => m.id);
 const auth = createAuth(process.env.RESEARCHERS);
 const baseline = createBaseline(SESSIONS_DIR);
 
@@ -85,10 +96,12 @@ function progressOf(p) {
   const s = metrics.summarize(p, store.readEvents(p.code));
   return {
     consented: s.consented, audioReady: s.audioReady, briefed: s.briefed, done: s.done, callsDone: s.callsDone,
+    surveyDone: !!(p.survey && p.survey.submittedAt),
     completedCalls: s.calls.filter((c) => c.completed).map((c) => c.n),
   };
 }
 const surveyView = (p) => (p.survey && p.survey.answers) || null;
+const panelView = (p) => (p.panel && p.panel.state) || null;
 
 // Survey audio: one file per recording, in <data>/audio/<code>/
 const AUDIO_DIR = path.join(SESSIONS_DIR, "audio");
@@ -126,7 +139,7 @@ async function participantApi(req, res, pathname, query) {
   if (pathname === "/api/participant" && req.method === "GET") {
     const p = store.byCode(query.get("p"));
     if (!p) return sendJson(res, 404, { error: "unknown_code" });
-    return sendJson(res, 200, { participant: publicView(p), progress: progressOf(p), survey: surveyView(p) });
+    return sendJson(res, 200, { participant: publicView(p), progress: progressOf(p), survey: surveyView(p), panel: panelView(p) });
   }
   if (pathname === "/api/survey/audio" && req.method === "POST") {
     const p = store.byCode(query.get("p"));
@@ -147,7 +160,7 @@ async function participantApi(req, res, pathname, query) {
   if (pathname === "/api/participant/identify" && req.method === "POST") {
     const p = store.identify(body.email);
     if (!p) return sendJson(res, 400, { error: "invalid_email" });
-    return sendJson(res, 200, { participant: publicView(p), progress: progressOf(p), survey: surveyView(p) });
+    return sendJson(res, 200, { participant: publicView(p), progress: progressOf(p), survey: surveyView(p), panel: panelView(p) });
   }
   if (pathname === "/api/survey" && req.method === "POST") {
     const p = store.byCode(body.p);
@@ -161,6 +174,27 @@ async function participantApi(req, res, pathname, query) {
       if (a && b) a.recordings = Array.from(new Set(b.recordings.concat(a.recordings)));
     });
     store.update(p.code, { survey });
+    return sendJson(res, 200, { ok: true });
+  }
+  if (pathname === "/api/panel" && req.method === "POST") {
+    const p = store.byCode(body.p);
+    if (!p) return sendJson(res, 404, { error: "unknown_code" });
+    const prev = p.panel || {};
+    const st = body.state || {};
+    const ids = (xs, n) => (Array.isArray(xs) ? xs : []).filter((x) => typeof x === "string" && /^[a-z0-9_-]{1,40}$/i.test(x)).slice(0, n || 60);
+    const comments = cleanAnswers(st.comments, p.code);
+    const state = {
+      order: ids(st.order), stars: ids(st.stars, 10),
+      custom: (Array.isArray(st.custom) ? st.custom : []).slice(0, 20)
+        .filter((c) => c && /^custom-\d{1,3}$/.test(c.id)).map((c) => ({ id: c.id, name: String(c.name || "").slice(0, 80), desc: String(c.desc || "").slice(0, 400) })),
+      comments, general: cleanAnswers({ general: st.general }, p.code).general || null,
+    };
+    // a recording can finish uploading just after a save: keep files the earlier save had
+    const old = (prev.state && prev.state.comments) || {};
+    Object.keys(old).forEach((id) => { if (comments[id]) comments[id].recordings = Array.from(new Set(old[id].recordings.concat(comments[id].recordings))); });
+    if (prev.state && prev.state.general && state.general) state.general.recordings = Array.from(new Set(prev.state.general.recordings.concat(state.general.recordings)));
+    store.update(p.code, { panel: { state, startedAt: prev.startedAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+      submittedAt: prev.submittedAt || (body.submit ? new Date().toISOString() : null) } });
     return sendJson(res, 200, { ok: true });
   }
   if (pathname === "/api/participant/update" && req.method === "POST") {
@@ -222,10 +256,11 @@ async function adminApi(req, res, pathname, query) {
     return sendJson(res, 200, { added: r.added.map(brief), updated: r.updated.map(brief), skipped: r.skipped });
   }
   if (pathname === "/api/admin/remove" && req.method === "POST") {
-    const body = await readBody(req, 1e4).catch(() => ({}));
-    const ok = store.remove(body.code);
-    if (ok) console.log(`${me} removed participant ${body.code}`);
-    return sendJson(res, ok ? 200 : 404, { ok });
+    const body = await readBody(req, 1e5).catch(() => ({}));
+    const codes = (Array.isArray(body.codes) ? body.codes : [body.code]).filter(Boolean).slice(0, 1000);
+    const removed = codes.filter((c) => store.remove(c));
+    if (removed.length) console.log(`${me} deleted ${removed.length} participant(s): ${removed.join(", ")}`);
+    return sendJson(res, removed.length ? 200 : 404, { ok: removed.length > 0, removed });
   }
   if (pathname === "/api/admin/audio" && req.method === "GET") {
     const p = store.byCode(query.get("code"));
@@ -286,7 +321,7 @@ async function adminApi(req, res, pathname, query) {
       "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "no-store",
       "Content-Disposition": `attachment; filename="participants-${new Date().toISOString().slice(0, 10)}.csv"`,
     });
-    return res.end(metrics.csvRows(summaries()));
+    return res.end(metrics.csvRows(summaries(), { panelCurrent: PANEL_CURRENT }));
   }
   if (pathname === "/api/admin/export.json" && req.method === "GET") {
     const all = store.all().map((p) => ({ participant: p, events: store.readEvents(p.code) }));
@@ -362,7 +397,7 @@ http
         return sendJson(res, 200, { tokenAuth: Boolean(API_KEY), label: SIM_LABEL });
       }
       if (pathname === "/api/conversation-token" && req.method === "GET") return conversationToken(req, res);
-      if (pathname.startsWith("/api/participant") || pathname === "/api/events" || pathname.startsWith("/api/survey")) return await participantApi(req, res, pathname, url.searchParams);
+      if (pathname.startsWith("/api/participant") || pathname === "/api/events" || pathname.startsWith("/api/survey") || pathname === "/api/panel") return await participantApi(req, res, pathname, url.searchParams);
       if (pathname.startsWith("/api/admin/")) return await adminApi(req, res, pathname, url.searchParams);
       if (pathname === "/api/sessions" && req.method === "POST") return saveSession(req, res);
       if (pathname === "/api/sessions" && req.method === "GET") return listSessions(req, res);

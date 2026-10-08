@@ -31,6 +31,7 @@
         <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
         <button role="tab" data-tab="behaviour" aria-selected="false">Behaviour</button>
         <button role="tab" data-tab="survey" aria-selected="false">Survey</button>
+        <button role="tab" data-tab="panel" aria-selected="false">Panel</button>
         <button role="tab" data-tab="baseline" aria-selected="false">Baseline</button>
         <button role="tab" data-tab="participants" aria-selected="false">Participants</button>
         <button role="tab" data-tab="invites" aria-selected="false">Invites</button>
@@ -99,6 +100,30 @@
       <div id="sv-questions" class="sv"></div>
     </section>
 
+    <!-- Build your panel -->
+    <section id="tab-panel" class="page" hidden>
+      <div class="kpis" id="pn-kpis"></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-h"><h2>The group’s panel</h2><span class="muted">Modules at least half kept, in average order</span></div>
+          <ol id="pn-consensus" class="pn-consensus"></ol>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Their own ideas</h2><span class="muted" id="pn-ideas-n"></span></div>
+          <ul id="pn-ideas" class="sv-answers"></ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Modules</h2><span class="muted">Everyone who started the activity</span></div>
+        <div class="table-wrap"><table class="table" id="pn-modules"></table></div>
+        <p class="note">Kept: share of panels that include the module. Position: average place among those who kept it (1 = top). Stars: times starred as a must-have; score weights a first pick 3, second 2, third 1.</p>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Comments</h2><select id="pn-filter" class="pn-filter" aria-label="Show comments for"></select></div>
+        <ul id="pn-comments" class="sv-answers"></ul>
+      </div>
+    </section>
+
     <!-- Baseline -->
     <section id="tab-baseline" class="page" hidden>
       <div class="card" id="bl-upload-card">
@@ -162,7 +187,8 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-h"><h2>All participants</h2><span class="muted" id="invite-count"></span></div>
+        <div class="card-h"><h2>All participants</h2>
+          <div class="top-r"><span class="muted" id="invite-count"></span><button id="delete-selected" class="btn btn-danger" type="button" hidden>Delete selected</button></div></div>
         <div class="table-wrap"><table class="table" id="links"></table></div>
       </div>
     </section>
