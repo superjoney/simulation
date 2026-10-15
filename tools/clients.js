@@ -28,7 +28,7 @@ module.exports = {
       ["CS-2026-3720", "Escrow analysis copy", "Account Services", "Escrow", "Escrow Analysis Copy", "Resolved", "Aug 6, 2026"],
     ],
     ctx: {
-      why: ["Escrow", "Refund check for <span class=\"cx-acc cx-num\">$1,284.60</span> hasn’t been cashed", "Mailed Aug 4 · check no. 0041887"],
+      why: ["Escrow", "Refund check for <span class=\"cx-ok cx-num\">$1,284.60</span> hasn’t been cashed", "Mailed Aug 4 · check no. 0041887"], // green: money owed to her
       recap: null, // recap shows for Marcus only
       activity: [
         ["Refund check mailed · no. 0041887", "Aug 4"],

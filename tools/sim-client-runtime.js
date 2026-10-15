@@ -39,17 +39,21 @@
           '<div class="cx-tp"><div class="cx-lbl">' + h.ic('chat') + 'Talking points</div><ol>' + C.recap.points.map(function (p) { return '<li>' + p + '</li>'; }).join('') + '</ol></div>' +
           (C.recap.refer ? '<div class="sim-refer-row">' + referHtml() + '</div>' : '') +
         '</div></div>' : '') +
+      // Upcoming changes: collapsed like the Recap, with a count
+      '<div class="cx-recap cx-recap--b cx-upc"><button type="button" class="cx-recap-h" data-shv="cxt" data-v="cx-upc" aria-expanded="false" aria-controls="cx-upc">' +
+        '<span class="cx-recap-ic">' + h.ic('calendar_clock') + '</span><span>Upcoming changes</span>' +
+        '<span class="cx-upc-n" aria-label="' + C.upcoming.length + ' upcoming">' + C.upcoming.length + '</span><span class="cx-recap-s"></span>' + chev + '</button>' +
+        '<div class="cx-recap-b" id="cx-upc" hidden><ol class="cx-tl">' +
+          C.upcoming.map(function (u, i) { return item(u, i < 2 ? h.share(i ? 'esc' : 'pay', u[1].toLowerCase()) : ''); }).join('') + '</ol></div></div>' +
       '<h4 class="cx-sec"><span>Activity</span></h4><ul class="cx-sigs cx-sigs--b">' + C.activity.map(sig).join('') + '</ul>' +
+      '<button type="button" class="shv-link cx-link cx-link--act" data-shv="history">' + h.ic('history') + 'View full touchpoint history</button>' +
       payCard(h) +
-      '<h4 class="cx-sec"><span>Upcoming changes</span></h4><ol class="cx-tl">' +
-        C.upcoming.map(function (u, i) { return item(u, i < 2 ? h.share(i ? 'esc' : 'pay', u[1].toLowerCase()) : ''); }).join('') + '</ol>' +
       '<h4 class="cx-sec"><span>Taxes &amp; insurance</span></h4><div class="cx-list">' +
         h.disc('cx-tax', 'Taxes · ' + t[0], 'Next due ' + t[3].replace(/, \d{4}$/, ''), t[2] + '/yr',
           h.dl([['Taxing authority', t[1]], ['Annual', t[2] + (t[2].indexOf('.') < 0 ? '.00' : ''), 1], ['Next due', t[3]], ['Frequency', 'Semi-annual'], ['Last paid', t[4], 1]])) +
         h.disc('cx-ins', 'Insurance · ' + ins[1], 'Renews ' + ins[4].replace(/, \d{4}$/, ''), ins[2] + '/yr',
           h.dl([['Carrier', ins[0]], ['Premium', ins[2] + '.00', 1], ['Policy', ins[3], 1], ['Type', 'Homeowners HO-3'], ['Renewal', ins[4]], ['Last renewed', ins[5], 1]])) +
-      '</div>' +
-      '<button type="button" class="shv-link cx-link" data-shv="history">' + h.ic('history') + 'View full touchpoint history</button></div>';
+      '</div></div>';
   }
 
   /* ---------- Refer to Home Loan Expert (Marcus's refinance recap) ---------- */
@@ -82,6 +86,11 @@
   var css = document.createElement('style');
   css.textContent =
     '.cv-disc__item{cursor:pointer}' +
+    // Upcoming changes component: count badge, grey "Share with client", room for the timeline
+    '.cx-upc-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:100px;background:var(--nova-gray-100,#ececea);color:var(--nova-gray-800,#222);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}' +
+    '.cx-upc .cx-recap-b{padding:12px 14px 12px}.cx-upc .cx-tl{margin:0}' +
+    '.cx-share{background:var(--nova-gray-50,#f6f6f4);padding:6px 10px;border-radius:8px}' +
+    '.cx-link--act{margin-top:10px}' +
     '.sim-refer-row{margin:10px 0 4px}' +
     '.sim-refer{display:inline-flex;align-items:center;height:34px;padding:0 16px;border:0;border-radius:100px;background:var(--nova-gray-800,#111);color:#fff;font:inherit;font-size:14px;font-weight:500;cursor:pointer}' +
     '.sim-refer:hover{background:#000}.sim-refer:focus-visible{outline:2px solid var(--nova-gray-800,#111);outline-offset:2px}' +
