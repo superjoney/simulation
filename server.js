@@ -78,7 +78,8 @@ function saveSession(req, res) {
 
 /* ---------- progress: random call order per participant, and resume ----------
    Kept in SESSIONS_DIR/progress.json, keyed by the participant's name (case and spacing ignored).
-   A new name gets a random order; a name with calls still to do gets its saved order back. */
+   A new name gets a random order (always including the "always" customer, when set); a name with
+   calls still to do gets its saved order back. */
 const PROGRESS_FILE = path.join(SESSIONS_DIR, "progress.json");
 let progress = {};
 try { progress = JSON.parse(fs.readFileSync(PROGRESS_FILE, "utf8")); } catch { progress = {}; }
@@ -117,7 +118,11 @@ async function progressStart(req, res) {
     return sendJson(res, 200, { name: p.name, order: p.order, done: p.done, resumed: true });
   }
   const override = b && Array.isArray(b.order) && b.order.length && b.order.every((c) => clients.includes(c)) ? b.order : null;
-  const order = override || shuffled(clients).slice(0, count);
+  // "always": a customer every participant gets (e.g. Ruth); the rest of the slots are random, in a random order
+  const always = b && ID_RE.test(b.always || "") && clients.includes(b.always) ? b.always : null;
+  const order = override || (always
+    ? shuffled([always].concat(shuffled(clients.filter((c) => c !== always)).slice(0, count - 1)))
+    : shuffled(clients).slice(0, count));
   progress[key] = { name: String(b.name).trim().slice(0, 80), order, chosenBy: override ? "researcher" : "random", done: [],
     startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), finishedAt: null, runs: ((p && p.runs) || 0) + 1 };
   saveProgress();
