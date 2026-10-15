@@ -115,7 +115,14 @@ async function progressStart(req, res) {
   // Right-rail version (e.g. upcoming / recap / both): one per participant, random unless the researcher picks it
   const variants = (b && Array.isArray(b.variants) ? b.variants : []).filter((v) => ID_RE.test(v));
   const pickedVariant = b && variants.includes(b.variant) ? b.variant : null;
-  const randomVariant = () => (variants.length ? variants[crypto.randomInt(variants.length)] : null);
+  // never the same version twice in a row: skip the one given to the participant who started most recently
+  const randomVariant = () => {
+    if (!variants.length) return null;
+    let last = null, lastAt = "";
+    for (const k of Object.keys(progress)) { const r = progress[k]; if (r.variant && r.startedAt > lastAt) { lastAt = r.startedAt; last = r.variant; } }
+    const pool = variants.length > 1 ? variants.filter((v) => v !== last) : variants;
+    return pool[crypto.randomInt(pool.length)];
+  };
   const p = progress[key];
   if (p && !p.finishedAt && p.done.length < p.order.length) {
     if (!p.variant && variants.length) p.variant = pickedVariant || randomVariant();   // records from before variants existed

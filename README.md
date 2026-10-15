@@ -63,7 +63,8 @@ If they leave part way and come back, entering the same name (case and spacing d
 up at the first call they haven't finished, with the same order. Once they've finished both calls,
 the same name starts a new random session.
 
-**Right-rail version** is also random per participant, saved with their call order and kept on resume:
+**Right-rail version** is also random per participant (never the same as the participant who started
+just before), saved with their call order and kept on resume:
 Upcoming changes only, Recap only, or both (`railVariants` in `public/config.js`). Ruth's and Dana's
 Recap is written from their scripts; Marcus's is the refinance pitch. To fix it for a session, choose it
 under **Study settings** or add `&rail=upcoming`, `&rail=recap` or `&rail=both` to the link. Each
