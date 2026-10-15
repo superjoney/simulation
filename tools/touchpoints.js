@@ -9,7 +9,8 @@
 module.exports = {
   /* Ruth Calloway · escrow refund check never arrived (script). Payment $1,612.40 by autopay from Sep 1
      (P&I $1,509.20 + escrow $103.20; it was $1,626.40 with $117.20 escrow). Analysis Jul 28, 2026: surplus
-     $1,284.60 refunded by check 0041887, mailed Aug 4; escrow balance after the refund $206.40. */
+     $1,284.60 refunded by check 0041887, mailed Aug 4, leaving $412.80 in escrow ($619.20 today, Oct 5, after the
+     Sep 1 and Oct 1 payments). The new analysis keeps a $206.40 cushion (its projected low point). */
   ruth: {
     rows: `
     tp({ id: 'r01', channel: 'call', direction: 'in', label: 'Refund check not received', date: '2026-10-05', time: '10:02 AM', agent: AG.you, live: true,
@@ -43,8 +44,8 @@ module.exports = {
       summary: 'Surplus of $1,284.60. The refund check follows by mail.',
       thread: [{ dir: 'out', from: srv(P) + ' → Ruth Calloway', date: '07/28/26', subject: 'Your escrow analysis results', snippet: 'Your analysis found a surplus of $1,284.60. A refund check follows by mail.' }] }),
     tp({ id: 'r12', channel: 'payment', direction: 'out', label: 'Property tax paid from escrow', date: '2026-06-01', time: '', sub: 'Escrow disbursement',
-      summary: 'First-half property tax to the Boulder County Treasurer.',
-      pay: { amount: '$421.20', status: 'Disbursed', payee: 'Boulder County Treasurer', method: 'Escrow disbursement', posted: '06/01/26', alloc: [['Property tax · first half', '$421.20']] } }),
+      summary: 'Property tax installment to the Boulder County Treasurer, at last year’s $1,010.40 a year.',
+      pay: { amount: '$505.20', status: 'Disbursed', payee: 'Boulder County Treasurer', method: 'Escrow disbursement', posted: '06/01/26', alloc: [['Property tax · installment', '$505.20']] } }),
     tp({ id: 'r13', channel: 'payment', direction: 'out', label: 'Insurance premium paid from escrow', date: '2026-04-02', time: '', sub: 'Escrow disbursement',
       summary: 'Renewal premium to Pinecrest Home Insurance.', docs: ['d24'],
       pay: { amount: '$396.00', status: 'Disbursed', payee: 'Pinecrest Home Insurance', method: 'Escrow disbursement', posted: '04/02/26', alloc: [['Hazard insurance · renewal', '$396.00']] } })`,
