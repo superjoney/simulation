@@ -125,6 +125,9 @@ data in `tools/clients.js`. Each build:
   dials the Home Loan Expert on a second line;
 - checks off the Mini-Miranda when the participant clicks anywhere on it;
 - removes the iAssist system labels, "Needs SME" tags, reviewer flags and data-source tooltips.
+- gives the Touchpoints tab that customer's own history, documents and case handlers
+  (`tools/touchpoints.js`, written from each call script and the figures on that customer's page). The
+  section file itself isn't edited; `npm run test:touchpoints` runs the section's checks on each customer.
 
 Every edit is an exact match, so if a new export changes the code the build stops with the line that
 no longer matches. To use a new export, replace the file in `prototypes-src/` and rebuild.

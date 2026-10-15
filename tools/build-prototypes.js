@@ -7,6 +7,7 @@
 const fs = require("fs");
 const path = require("path");
 const CLIENTS = require("./clients");
+const TOUCHPOINTS = require("./touchpoints");
 
 const ROOT = path.join(__dirname, "..");
 const SRC = path.join(ROOT, "prototypes-src", "rail-snapshot-4.html");
@@ -202,6 +203,13 @@ function forClient(t, id, c) {
   if (c.first !== "Marcus") t = replace(t, "Marcus", c.first, "any");
 
   for (const [find, repl] of c.i02 || []) t = replace(t, find, repl);
+  // Touchpoints section: this customer's own history, documents and case handlers (tools/touchpoints.js)
+  const tp = TOUCHPOINTS[id];
+  if (tp) t = inScript(t, "sec-touchpoints-f-tp", (s) => {
+    s = between(s, "  BASE[P] = [", "\n  ];\n  /* other household loans", tp.rows);
+    s = between(s, "  var ART = {", "\n  };\n  function caseArt", tp.art);
+    return replace(s, "var CASE_BY = { 'CS-2026-4107': AG.sl, 'CS-2026-3861': AG.tb, 'CS-2026-2210': AG.ja };", "var CASE_BY = " + tp.caseBy + ";");
+  });
   // the Escrow refund issue playbook's escrow analysis, in this client's payment
   if (c.rr) t = inScript(t, "rr-playbook-script", (s) => { for (const [find, repl, n] of c.rr) s = replace(s, find, repl, n || 1); return s; });
   return t;

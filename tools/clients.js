@@ -38,11 +38,13 @@ module.exports = {
       // Payments card: [date, detail, amount] for next due and last paid, then the footer row
       pay: { next: ["Nov 1", "autopay", "$1,612.40"], last: ["Oct 1", "autopay", "$1,612.40"], foot: ["Escrow balance", "$206.40"] }, // script
       upcoming: [
-        ["Dec 1", "Taxes due · Boulder Co.", "$3,118/yr", "Semi-annual"],
+        ["Dec 1", "Taxes due · Boulder Co.", "$842.40/yr", "Semi-annual"],
         ["Jan 31, 2027", "Uncashed check posts back to escrow", "$1,284.60", "Day 180 · KA-01215"],
       ],
-      taxes: ["Boulder Co.", "Boulder County Treasurer", "$3,118", "Dec 1, 2026", "Jun 1, 2026 · $1,559.00"],
-      insurance: ["Pinecrest Home Insurance", "Pinecrest", "$1,452", "PHI-30418-CO", "Apr 2, 2027", "Apr 2, 2026"],
+      // escrow bills match her escrow analysis: $842.40 + $396.00 = $1,238.40 a year → $103.20/mo, and a
+      // 2-month cushion of $206.40 (her escrow balance after the refund, script)
+      taxes: ["Boulder Co.", "Boulder County Treasurer", "$842.40", "Dec 1, 2026", "Jun 1, 2026 · $421.20"],
+      insurance: ["Pinecrest Home Insurance", "Pinecrest", "$396", "PHI-30418-CO", "Apr 2, 2027", "Apr 2, 2026"],
     },
     // The Escrow refund issue playbook's escrow analysis is written around a $1,459.00 payment. Ruth's
     // payment is $1,612.40 (script), so P&I becomes $1,509.20; base escrow, cushion and refund are unchanged.
