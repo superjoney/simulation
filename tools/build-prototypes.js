@@ -1,15 +1,16 @@
 // Builds one prototype per client from the original export.
 //   node tools/build-prototypes.js
-// Reads prototypes-src/rail-snapshot-3.html (never modified) and writes public/prototypes/<client>.html.
+// Reads prototypes-src/rail-snapshot-4.html (never modified) and writes public/prototypes/<client>.html.
 // Every edit is an exact find-and-replace that must match the expected number of times, so a new
 // export that changes the code fails loudly here instead of silently showing the wrong data.
 
 const fs = require("fs");
 const path = require("path");
 const CLIENTS = require("./clients");
+const TOUCHPOINTS = require("./touchpoints");
 
 const ROOT = path.join(__dirname, "..");
-const SRC = path.join(ROOT, "prototypes-src", "rail-snapshot-3.html");
+const SRC = path.join(ROOT, "prototypes-src", "rail-snapshot-4.html");
 const OUT_DIR = path.join(ROOT, "public", "prototypes");
 const RUNTIME = fs.readFileSync(path.join(__dirname, "sim-client-runtime.js"), "utf8");
 
@@ -193,6 +194,7 @@ function forClient(t, id, c) {
   t = replace(t, "marcus.j@example.com", c.email, "any");
   t = replace(t, "m•••@example.com", c.email[0] + "•••@example.com", "any");
   t = replace(t, "(444) 222 – 8888", c.phone, "any");
+  t = replace(t, "(444) 222-8888", c.phone.replace(/\s*–\s*/, "-"), "any");
   t = replace(t, "456123789", c.loan, "any");
   t = replace(t, "Marcus Johnson", c.full, "any");
   t = replace(t, "Payee = JOHNSON", "Payee = " + c.full.split(" ").pop().toUpperCase(), 2);
@@ -201,6 +203,13 @@ function forClient(t, id, c) {
   if (c.first !== "Marcus") t = replace(t, "Marcus", c.first, "any");
 
   for (const [find, repl] of c.i02 || []) t = replace(t, find, repl);
+  // Touchpoints section: this customer's own history, documents and case handlers (tools/touchpoints.js)
+  const tp = TOUCHPOINTS[id];
+  if (tp) t = inScript(t, "sec-touchpoints-f-tp", (s) => {
+    s = between(s, "  BASE[P] = [", "\n  ];\n  /* other household loans", tp.rows);
+    s = between(s, "  var ART = {", "\n  };\n  function caseArt", tp.art);
+    return replace(s, "var CASE_BY = { 'CS-2026-4107': AG.sl, 'CS-2026-3861': AG.tb, 'CS-2026-2210': AG.ja };", "var CASE_BY = " + tp.caseBy + ";");
+  });
   // the Escrow refund issue playbook's escrow analysis, in this client's payment
   if (c.rr) t = inScript(t, "rr-playbook-script", (s) => { for (const [find, repl, n] of c.rr) s = replace(s, find, repl, n || 1); return s; });
   return t;

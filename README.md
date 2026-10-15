@@ -10,7 +10,7 @@ back, each with its own customer, prototype data and playbook.
 | Marcus Dell | Payment increase after paid shortage | `agent_8801m4b9kpqye5e8vv0m0emfvqk3` |
 | Dana Whitcomb | Insurance premium change | `agent_6301m0ztb3e3ew3a7x5y5abhwjx6` |
 
-A session plays two of the three: always Ruth, plus Marcus or Dana at random, in a random order (see below).
+A session plays Ruth and Dana, in a random order for each participant (see below).
 
 ## Run it
 
@@ -56,12 +56,19 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
 4. After the last call the card says the session is complete.
 5. The rocket logo in the prototype goes back to the start page (with a confirm during a call).
 
-**Call order** is random for each new participant: every participant gets Ruth (`alwaysInclude` in
-`public/config.js`), the other call is Marcus or Dana at random, and the order is random too. The
-server picks this when they press Start, and saves it under their name in `SESSIONS_DIR/progress.json`.
+**Call order** is random for each new participant: everyone gets Ruth and Dana (`callSet` in
+`public/config.js`), as Ruth → Dana or Dana → Ruth at random. The server picks this when they press
+Start, and saves it under their name in `SESSIONS_DIR/progress.json`.
 If they leave part way and come back, entering the same name (case and spacing don't matter) picks
 up at the first call they haven't finished, with the same order. Once they've finished both calls,
-the same name starts a new random session. To fix the order for a session, choose it under
+the same name starts a new random session.
+
+**Right-rail version** is also random per participant (never the same as the participant who started
+just before), saved with their call order and kept on resume:
+Upcoming changes only, Recap only, or both (`railVariants` in `public/config.js`). Ruth's and Dana's
+Recap is written from their scripts; Marcus's is the refinance pitch. To fix it for a session, choose it
+under **Study settings** or add `&rail=upcoming`, `&rail=recap` or `&rail=both` to the link. Each
+participant's version is saved in `progress.json` (`variant`) and in the session log (`rail`). To fix the order for a session, choose it under
 **Study settings** (small link under Start) or use a link like `/?participant=P07&order=marcus,ruth`.
 
 ### Session log
@@ -87,8 +94,20 @@ Each caller's persona and lines come from the agent's system prompt in the Eleve
 
 ## Per-customer prototypes
 
-`prototypes-src/rail-snapshot-3.html` is the current export (`rail-snapshot-2.html`, the earlier one, is kept for
-reference). Neither is edited by the build. Running
+The simulator builds from the newest export version. Earlier versions are kept, never edited:
+
+| Version | What changed |
+| --- | --- |
+| `rail-snapshot-2.html` | Original export. |
+| `rail-snapshot-3.html` | Payments card in the rail, playbook search label, Escrow refund issue playbook (Oct 15). |
+| `rail-snapshot-4.html` | Touchpoints tab: section merged (Oct 15 handback). |
+
+Section handbacks live in `prototypes-src/sections/<name>/` (as in the design kit). To bundle them into a
+new version: `node tools/bundle-sections.js prototypes-src/rail-snapshot-3.html prototypes-src/rail-snapshot-4.html`.
+It prints a decoded copy of the page for the section tests, e.g.
+`TM_TB=<decoded copy> node prototypes-src/sections/touchpoints/test-touchpoints.js | tail -1`.
+
+Running
 
 ```bash
 npm run build:prototypes
@@ -113,6 +132,9 @@ data in `tools/clients.js`. Each build:
   dials the Home Loan Expert on a second line;
 - checks off the Mini-Miranda when the participant clicks anywhere on it;
 - removes the iAssist system labels, "Needs SME" tags, reviewer flags and data-source tooltips.
+- gives the Touchpoints tab that customer's own history, documents and case handlers
+  (`tools/touchpoints.js`, written from each call script and the figures on that customer's page). The
+  section file itself isn't edited; `npm run test:touchpoints` runs the section's checks on each customer.
 
 Every edit is an exact match, so if a new export changes the code the build stops with the line that
 no longer matches. To use a new export, replace the file in `prototypes-src/` and rebuild.

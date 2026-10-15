@@ -28,21 +28,36 @@ module.exports = {
       ["CS-2026-3720", "Escrow analysis copy", "Account Services", "Escrow", "Escrow Analysis Copy", "Resolved", "Aug 6, 2026"],
     ],
     ctx: {
-      why: ["Escrow", "Refund check for <span class=\"cx-acc cx-num\">$1,284.60</span> hasn’t been cashed", "Mailed Aug 4 · check no. 0041887"],
-      recap: null, // recap shows for Marcus only
+      why: ["Escrow", "Refund check for <span class=\"cx-ok cx-num\">$1,284.60</span> hasn’t been cashed", "Mailed Aug 4 · check no. 0041887"], // green: money owed to her
+      // Recap (shown in the "recap" and "both" rail versions), from her script's canonical answers
+      recap: {
+        label: "Eligible for",
+        elig: "A <b>stop payment and reissue</b>. Check 0041887 for <b class=\"cx-num\">$1,284.60</b> was mailed Aug 4 and hasn’t been cashed. It’s past the 30-day gate, the account is current and there’s no prior stop-pay.",
+        points: [
+          "“Your refund check for $1,284.60 went out Aug 4 and hasn’t been cashed, so I can stop it and send you a new one on this call.”",
+          "“I have your mailing address as 428 Maple Ave in Boulder. Is that still the best place to send it?”",
+          "“The new check can go by standard mail, or by FedEx for a fee of about $7. A wire needs instructions from your bank, sent to our Research Department.”",
+        ],
+      },
       activity: [
         ["Refund check mailed · no. 0041887", "Aug 4"],
         ["Escrow analysis · surplus $1,284.60", "Jul 28"],
         ["Payment cleared Oct 1 · autopay", "$1,612.40"],
       ],
       // Payments card: [date, detail, amount] for next due and last paid, then the footer row
-      pay: { next: ["Nov 1", "autopay", "$1,612.40"], last: ["Oct 1", "autopay", "$1,612.40"], foot: ["Escrow balance", "$206.40"] }, // script
+      // Escrow balance today (Oct 5): $412.80 after the Aug 4 refund + $103.20 on Sep 1 and Oct 1. Under the new
+      // analysis that path bottoms out at the $206.40 cushion (Jun 1, 2027), and before the refund its low point
+      // was $1,491.00, the analysis figure ($1,491.00 − $206.40 = $1,284.60 refunded).
+      pay: { next: ["Nov 1", "autopay", "$1,612.40"], last: ["Oct 1", "autopay", "$1,612.40"], foot: ["Escrow balance", "$619.20"] }, // payment: script
       upcoming: [
-        ["Dec 1", "Taxes due · Boulder Co.", "$3,118/yr", "Semi-annual"],
+        ["Dec 1", "Taxes due · Boulder Co.", "$842.40/yr", "Semi-annual"],
         ["Jan 31, 2027", "Uncashed check posts back to escrow", "$1,284.60", "Day 180 · KA-01215"],
       ],
-      taxes: ["Boulder Co.", "Boulder County Treasurer", "$3,118", "Dec 1, 2026", "Jun 1, 2026 · $1,559.00"],
-      insurance: ["Pinecrest Home Insurance", "Pinecrest", "$1,452", "PHI-30418-CO", "Apr 2, 2027", "Apr 2, 2026"],
+      // escrow bills match her escrow analysis: $842.40 + $396.00 = $1,238.40 a year → $103.20/mo, and a
+      // 2-month cushion of $206.40 (her escrow balance after the refund, script)
+      // Jun 1, 2026 was paid under last year's analysis ($1,010.40 a year → $505.20 a half)
+      taxes: ["Boulder Co.", "Boulder County Treasurer", "$842.40", "Dec 1, 2026", "Jun 1, 2026 · $505.20"],
+      insurance: ["Pinecrest Home Insurance", "Pinecrest", "$396", "PHI-30418-CO", "Apr 2, 2027", "Apr 2, 2026"],
     },
     // The Escrow refund issue playbook's escrow analysis is written around a $1,459.00 payment. Ruth's
     // payment is $1,612.40 (script), so P&I becomes $1,509.20; base escrow, cushion and refund are unchanged.
@@ -50,6 +65,19 @@ module.exports = {
       ["1,355.80", "1,509.20", 2], ["1355.80", "1509.20", 2],
       ["1,459.00", "1,612.40", 6], ["1459.00", "1612.40"],
       ["1,473.00", "1,626.40", 2], ["1473.00", "1626.40"],
+      // Today is Oct 5, 2026, the day the Touchpoints tab uses, and after her Oct 1 payment (script): day 62
+      // since the Aug 4 mailing, 118 days left to day 180 (Jan 31, 2027).
+      ['"hover": "Today − Aug 4, 2026 = 40 days"', '"hover": "Today − Aug 4, 2026 = 62 days"'],
+      ['["Today", "Sep 13, 2026", 0]', '["Today", "Oct 5, 2026", 0]'],
+      ['["= Days since", "40", 2]', '["= Days since", "62", 2]'],
+      ['"hover": "Day 180 − day 40 = 140 days"', '"hover": "Day 180 − day 62 = 118 days"'],
+      ['["− Today", "Day 40", 1]', '["− Today", "Day 62", 1]'],
+      ['["= Days left", "140", 2]', '["= Days left", "118", 2]'],
+      ["tile('Disbursed', rt('40', RR_POP.DAYS)", "tile('Disbursed', rt('62', RR_POP.DAYS)"],
+      ["'Funds post back in <b>140 days</b>'", "'Funds post back in <b>118 days</b>'"],
+      ["not cashed at day 40.", "not cashed at day 62."],
+      // $206.40 is the cushion (the projected low point), not today's balance
+      ["Escrow balance is now $206.40.", "The new analysis keeps a $206.40 cushion."],
     ],
     summary: [
       "The client called because an escrow refund check for $1,284.60 never arrived.",
@@ -131,8 +159,17 @@ module.exports = {
       ["CS-2026-4131", "Insurance policy change", "Research", "Insurance", "Hazard Insurance Update", "Open", "Oct 3, 2026"],
     ],
     ctx: {
-      why: ["Insurance", "Switched to a cheaper homeowners policy · <span class=\"cx-acc cx-num\">−$264/yr</span>", "Dec page received Oct 3 · Front Range Mutual"],
-      recap: null, // recap shows for Marcus only
+      why: ["Insurance", "Switched to a cheaper homeowners policy · <span class=\"cx-ok cx-num\">−$264/yr</span>", "Dec page received Oct 3 · Front Range Mutual"], // green: a saving
+      // Recap (shown in the "recap" and "both" rail versions), from her script's canonical answers
+      recap: {
+        label: "Eligible for",
+        elig: "An <b>off-cycle escrow analysis</b>. The Front Range Mutual policy FRM-2209-4417 (<b class=\"cx-num\">$1,380.00</b> a year from Oct 1) is on file and matches the dec page. The premium went down, so she doesn’t have to wait for the annual review.",
+        points: [
+          "“Your new policy is on file at $1,380 a year. That’s $22 a month less going into escrow.”",
+          "“Because your premium went down, I can rerun your escrow now instead of waiting for the annual review.”",
+          "“Your new monthly payment comes from that analysis, and I’ll send you an updated statement.”",
+        ],
+      },
       activity: [
         ["Dec page received · Front Range Mutual", "Oct 3"],
         ["Payment cleared Oct 1 · autopay", "$1,683.22"],

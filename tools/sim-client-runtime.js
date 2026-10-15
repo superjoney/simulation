@@ -9,6 +9,28 @@
     return '<li class="cx-sig"><span class="cx-sig-d" aria-hidden="true"></span><span class="cx-sig-l">' + row[0] +
       (row[3] ? '<span class="cx-sub">' + row[3] + '</span>' : '') + '</span><span class="cx-sig-v cx-num' + (row[2] ? ' cx-acc' : '') + '">' + row[1] + '</span></li>';
   }
+  /* Upcoming changes: collapsed like the Recap. The badge counts the changes not yet shared with the
+     client, so it counts down as the CR ticks "Share with client". */
+  function upcomingHtml(h, chev) {
+    var items = C.upcoming.map(function (u, i) { return { u: u, share: i < 2 ? h.share(i ? 'esc' : 'pay', u[1].toLowerCase()) : '' }; });
+    var left = items.filter(function (x) { return !/\schecked[\s>]/.test(x.share); }).length;
+    return '<div class="cx-recap cx-recap--b cx-upc"><button type="button" class="cx-recap-h" data-shv="cxt" data-v="cx-upc" aria-expanded="false" aria-controls="cx-upc">' +
+        '<span class="cx-recap-ic">' + h.ic('calendar_clock') + '</span><span>Upcoming changes</span>' + badge(left) + '<span class="cx-recap-s"></span>' + chev + '</button>' +
+      '<div class="cx-recap-b" id="cx-upc" hidden><ol class="cx-tl">' + items.map(function (x) { return item(x.u, x.share); }).join('') + '</ol></div></div>';
+  }
+  function badge(left) {
+    return '<span class="cx-upc-n' + (left ? '' : ' cx-upc-n--done') + '" aria-label="' + (left ? left + ' not yet shared with the client' : 'All shared with the client') + '">' + left + '</span>';
+  }
+  function recount() {
+    var box = document.getElementById('cx-upc'), n = document.querySelector('.cx-upc .cx-upc-n');
+    if (!box || !n) return;
+    var all = box.querySelectorAll('.cx-tl-i').length, shared = box.querySelectorAll('input[data-shv-share]:checked').length;
+    n.outerHTML = badge(Math.max(0, all - shared));
+  }
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.matches && e.target.matches('#cx-upc input[data-shv-share]')) recount();
+  }, true);
+
   /* Payments card (same markup as the template's payCardHtml), in this client's numbers */
   function payCard(h) {
     var P = C.pay;
@@ -26,30 +48,36 @@
   }
 
   /* h = the right panel's own helpers: { ic, dl, disc, share } */
+  // Which right-rail version this participant sees (set by the simulator: upcoming | recap | both)
+  function railVariant() {
+    try { var v = window.parent && window.parent.SIM_RAIL; if (v === 'upcoming' || v === 'recap' || v === 'both') return v; } catch (e) {}
+    return 'both';
+  }
+
   function context(h) {
+    var rail = railVariant(), showRecap = rail !== 'upcoming' && !!C.recap, showUpcoming = rail !== 'recap';
     var chev = h.ic('expand_more').replace('class="nova-icon"', 'class="nova-icon cx-chev"');
     var t = C.taxes, ins = C.insurance;
     return '<div class="cx">' +
       '<div class="cx-why"><div class="cx-lbl">' + h.ic('sparkle') + 'Why they’re calling · ' + C.why[0] + '</div>' +
         '<p class="cx-why-t">' + C.why[1] + '</p><span class="cx-sub">' + C.why[2] + '</span></div>' +
-      (C.recap ? '<div class="cx-recap cx-recap--b"><button type="button" class="cx-recap-h" data-shv="cxt" data-v="cx-recap" aria-expanded="false" aria-controls="cx-recap">' +
+      (showRecap ? '<div class="cx-recap cx-recap--b"><button type="button" class="cx-recap-h" data-shv="cxt" data-v="cx-recap" aria-expanded="false" aria-controls="cx-recap">' +
         '<span class="cx-recap-ic">' + h.ic('sparkle') + '</span><span>Recap</span><span class="cx-recap-s"></span>' + chev + '</button>' +
         '<div class="cx-recap-b" id="cx-recap" hidden>' +
           '<div class="cx-elig"><div class="cx-lbl">' + h.ic('check_circle') + C.recap.label + '</div><p>' + C.recap.elig + '</p></div>' +
           '<div class="cx-tp"><div class="cx-lbl">' + h.ic('chat') + 'Talking points</div><ol>' + C.recap.points.map(function (p) { return '<li>' + p + '</li>'; }).join('') + '</ol></div>' +
           (C.recap.refer ? '<div class="sim-refer-row">' + referHtml() + '</div>' : '') +
         '</div></div>' : '') +
+      (showUpcoming ? upcomingHtml(h, chev) : '') +
       '<h4 class="cx-sec"><span>Activity</span></h4><ul class="cx-sigs cx-sigs--b">' + C.activity.map(sig).join('') + '</ul>' +
+      '<button type="button" class="shv-link cx-link cx-link--act" data-shv="history">' + h.ic('history') + 'View full touchpoint history</button>' +
       payCard(h) +
-      '<h4 class="cx-sec"><span>Upcoming changes</span></h4><ol class="cx-tl">' +
-        C.upcoming.map(function (u, i) { return item(u, i < 2 ? h.share(i ? 'esc' : 'pay', u[1].toLowerCase()) : ''); }).join('') + '</ol>' +
       '<h4 class="cx-sec"><span>Taxes &amp; insurance</span></h4><div class="cx-list">' +
         h.disc('cx-tax', 'Taxes · ' + t[0], 'Next due ' + t[3].replace(/, \d{4}$/, ''), t[2] + '/yr',
           h.dl([['Taxing authority', t[1]], ['Annual', t[2] + (t[2].indexOf('.') < 0 ? '.00' : ''), 1], ['Next due', t[3]], ['Frequency', 'Semi-annual'], ['Last paid', t[4], 1]])) +
         h.disc('cx-ins', 'Insurance · ' + ins[1], 'Renews ' + ins[4].replace(/, \d{4}$/, ''), ins[2] + '/yr',
           h.dl([['Carrier', ins[0]], ['Premium', ins[2] + '.00', 1], ['Policy', ins[3], 1], ['Type', 'Homeowners HO-3'], ['Renewal', ins[4]], ['Last renewed', ins[5], 1]])) +
-      '</div>' +
-      '<button type="button" class="shv-link cx-link" data-shv="history">' + h.ic('history') + 'View full touchpoint history</button></div>';
+      '</div></div>';
   }
 
   /* ---------- Refer to Home Loan Expert (Marcus's refinance recap) ---------- */
@@ -82,6 +110,12 @@
   var css = document.createElement('style');
   css.textContent =
     '.cv-disc__item{cursor:pointer}' +
+    // Upcoming changes component: count badge, grey "Share with client", room for the timeline
+    '.cx-upc-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:100px;background:var(--nova-gray-100,#ececea);color:var(--nova-gray-800,#222);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}' +
+    '.cx-upc .cx-recap-b{padding:12px 14px 12px}.cx-upc .cx-tl{margin:0}' +
+    '.cx-share{display:flex;width:100%;box-sizing:border-box;background:var(--nova-gray-50,#f6f6f4);padding:7px 10px;border-radius:8px}' +
+    '.cx-upc-n--done{background:var(--nova-green-50,#e9f5ee);color:var(--nova-green-700,#1d6b3d)}' +
+    '.cx-link--act{margin-top:10px}' +
     '.sim-refer-row{margin:10px 0 4px}' +
     '.sim-refer{display:inline-flex;align-items:center;height:34px;padding:0 16px;border:0;border-radius:100px;background:var(--nova-gray-800,#111);color:#fff;font:inherit;font-size:14px;font-weight:500;cursor:pointer}' +
     '.sim-refer:hover{background:#000}.sim-refer:focus-visible{outline:2px solid var(--nova-gray-800,#111);outline-offset:2px}' +

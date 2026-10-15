@@ -112,10 +112,22 @@ async function progressStart(req, res) {
   const clients = (b && Array.isArray(b.clients) ? b.clients : []).filter((c) => ID_RE.test(c));
   const count = Math.max(1, Math.min(Number(b && b.count) || 2, clients.length));
   if (!key || !clients.length) return sendJson(res, 400, { error: "name_and_clients_required" });
+  // Right-rail version (e.g. upcoming / recap / both): one per participant, random unless the researcher picks it
+  const variants = (b && Array.isArray(b.variants) ? b.variants : []).filter((v) => ID_RE.test(v));
+  const pickedVariant = b && variants.includes(b.variant) ? b.variant : null;
+  // never the same version twice in a row: skip the one given to the participant who started most recently
+  const randomVariant = () => {
+    if (!variants.length) return null;
+    let last = null, lastAt = "";
+    for (const k of Object.keys(progress)) { const r = progress[k]; if (r.variant && r.startedAt > lastAt) { lastAt = r.startedAt; last = r.variant; } }
+    const pool = variants.length > 1 ? variants.filter((v) => v !== last) : variants;
+    return pool[crypto.randomInt(pool.length)];
+  };
   const p = progress[key];
   if (p && !p.finishedAt && p.done.length < p.order.length) {
+    if (!p.variant && variants.length) p.variant = pickedVariant || randomVariant();   // records from before variants existed
     p.resumes = (p.resumes || 0) + 1; p.updatedAt = new Date().toISOString(); saveProgress();
-    return sendJson(res, 200, { name: p.name, order: p.order, done: p.done, resumed: true });
+    return sendJson(res, 200, { name: p.name, order: p.order, done: p.done, variant: p.variant || null, resumed: true });
   }
   const override = b && Array.isArray(b.order) && b.order.length && b.order.every((c) => clients.includes(c)) ? b.order : null;
   // "always": a customer every participant gets (e.g. Ruth); the rest of the slots are random, in a random order
@@ -123,10 +135,12 @@ async function progressStart(req, res) {
   const order = override || (always
     ? shuffled([always].concat(shuffled(clients.filter((c) => c !== always)).slice(0, count - 1)))
     : shuffled(clients).slice(0, count));
-  progress[key] = { name: String(b.name).trim().slice(0, 80), order, chosenBy: override ? "researcher" : "random", done: [],
+  const variant = pickedVariant || randomVariant();
+  progress[key] = { name: String(b.name).trim().slice(0, 80), order, chosenBy: override ? "researcher" : "random",
+    variant, variantChosenBy: pickedVariant ? "researcher" : "random", done: [],
     startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), finishedAt: null, runs: ((p && p.runs) || 0) + 1 };
   saveProgress();
-  return sendJson(res, 200, { order, done: [], resumed: false });
+  return sendJson(res, 200, { order, done: [], variant, resumed: false });
 }
 
 async function progressCall(req, res) {
