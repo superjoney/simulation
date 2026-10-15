@@ -10,7 +10,7 @@ back, each with its own customer, prototype data and playbook.
 | Marcus Dell | Payment increase after paid shortage | `agent_8801m4b9kpqye5e8vv0m0emfvqk3` |
 | Dana Whitcomb | Insurance premium change | `agent_6301m0ztb3e3ew3a7x5y5abhwjx6` |
 
-A session plays two of the three; **Study settings** picks which two and in what order.
+A session plays two of the three, picked at random for each new participant (see below).
 
 ## Run it
 
@@ -56,9 +56,12 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
 4. After the last call the card says the session is complete.
 5. The rocket logo in the prototype goes back to the start page (with a confirm during a call).
 
-**Study settings** (small link under Start) sets the call order, e.g. Ruth → Marcus or
-Marcus → Ruth, for counterbalancing. Links can preset it:
-`/?participant=P07&order=marcus,ruth`.
+**Call order** is random for each new participant: the server picks two of the three customers in
+a random order when they press Start, and saves it under their name in `SESSIONS_DIR/progress.json`.
+If they leave part way and come back, entering the same name (case and spacing don't matter) picks
+up at the first call they haven't finished, with the same order. Once they've finished both calls,
+the same name starts a new random session. To fix the order for a session, choose it under
+**Study settings** (small link under Start) or use a link like `/?participant=P07&order=marcus,ruth`.
 
 ### Session log
 
