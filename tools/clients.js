@@ -150,7 +150,7 @@ module.exports = {
       ["CS-2026-4131", "Insurance policy change", "Research", "Insurance", "Hazard Insurance Update", "Open", "Oct 3, 2026"],
     ],
     ctx: {
-      why: ["Insurance", "Switched to a cheaper homeowners policy · <span class=\"cx-acc cx-num\">−$264/yr</span>", "Dec page received Oct 3 · Front Range Mutual"],
+      why: ["Insurance", "Switched to a cheaper homeowners policy · <span class=\"cx-ok cx-num\">−$264/yr</span>", "Dec page received Oct 3 · Front Range Mutual"], // green: a saving
       recap: null, // recap shows for Marcus only
       activity: [
         ["Dec page received · Front Range Mutual", "Oct 3"],
