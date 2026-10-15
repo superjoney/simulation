@@ -9,9 +9,15 @@
     return '<li class="cx-sig"><span class="cx-sig-d" aria-hidden="true"></span><span class="cx-sig-l">' + row[0] +
       (row[3] ? '<span class="cx-sub">' + row[3] + '</span>' : '') + '</span><span class="cx-sig-v cx-num' + (row[2] ? ' cx-acc' : '') + '">' + row[1] + '</span></li>';
   }
-  function stat(c) {
-    return '<div class="cx-stat cx-stat--b"><span class="cx-stat-l">' + c[0] + '</span><span class="cx-stat-v cx-num">' + c[1] + '</span><span class="cx-stat-s' +
-      (c[4] ? ' cx-acc' : '') + '">' + c[2] + '</span><span class="cx-stat-s">' + c[3] + '</span></div>';
+  /* Payments card (same markup as the template's payCardHtml), in this client's numbers */
+  function payCard(h) {
+    var P = C.pay;
+    var sub = function (d) { return d === 'autopay' ? (DATA.autopay ? 'Autopay <span class="cx-num">····' + DATA.autopay + '</span>' : 'No autopay') : d; };
+    var row = function (r, lab, cls) { return '<div class="cx-pay-r' + (cls ? ' ' + cls : '') + '"><div class="cx-pay-l"><span class="cx-pay-d"><b>' + r[0] + '</b></span><span class="cx-pay-s">' + sub(r[1]) + '</span></div>' +
+      '<div class="cx-pay-v"><span class="cx-pay-k">' + lab + '</span><span class="cx-pay-a cx-num">' + r[2] + '</span></div></div>'; };
+    return '<section class="cx-pay" aria-labelledby="cx-pay-h"><h4 class="cx-pay-h" id="cx-pay-h">' + h.ic('money') + '<span>Payments</span></h4>' +
+      row(P.next, 'Next due', 'cx-pay-r--next') + row(P.last, 'Last paid') +
+      '<div class="cx-pay-e"><span>' + P.foot[0] + '</span><span class="cx-pay-a cx-num">' + P.foot[1] + '</span></div></section>';
   }
   function item(u, extra) {
     return '<li class="cx-tl-i"><span class="cx-tl-m" aria-hidden="true"></span><div class="cx-tl-b"><span class="cx-tl-d cx-num">' + u[0] + '</span>' +
@@ -34,9 +40,7 @@
           (C.recap.refer ? '<div class="sim-refer-row">' + referHtml() + '</div>' : '') +
         '</div></div>' : '') +
       '<h4 class="cx-sec"><span>Activity</span></h4><ul class="cx-sigs cx-sigs--b">' + C.activity.map(sig).join('') + '</ul>' +
-      '<h4 class="cx-sec"><span>Payments</span>' +
-        (DATA.autopay ? '<span class="cx-sec-r cx-ok">' + h.ic('check_circle') + 'Autopay <span class="cx-num">····' + DATA.autopay + '</span></span>' : '<span class="cx-sec-r">No autopay</span>') + '</h4>' +
-      '<div class="cx-stats cx-stats--b">' + C.stats.map(stat).join('') + '</div>' +
+      payCard(h) +
       '<h4 class="cx-sec"><span>Upcoming changes</span></h4><ol class="cx-tl">' +
         C.upcoming.map(function (u, i) { return item(u, i < 2 ? h.share(i ? 'esc' : 'pay', u[1].toLowerCase()) : ''); }).join('') + '</ol>' +
       '<h4 class="cx-sec"><span>Taxes &amp; insurance</span></h4><div class="cx-list">' +

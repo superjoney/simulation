@@ -11,7 +11,7 @@ window.SIM_CONFIG = {
       id: "ruth",
       name: "Ruth Calloway",
       phone: "(303) 555 – 0148",
-      playbook: "Escrow refund reissue",
+      playbook: "Escrow refund issue",
       agentId: "agent_1701m4b8pgpze1ys6fn2g0m9qqkt",
     },
     {

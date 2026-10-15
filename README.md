@@ -6,7 +6,7 @@ back, each with its own customer, prototype data and playbook.
 
 | Customer | Playbook | Agent |
 | --- | --- | --- |
-| Ruth Calloway | Escrow refund reissue | `agent_1701m4b8pgpze1ys6fn2g0m9qqkt` (Ruth-agent) |
+| Ruth Calloway | Escrow refund issue | `agent_1701m4b8pgpze1ys6fn2g0m9qqkt` (Ruth-agent) |
 | Marcus Dell | Payment increase after paid shortage | `agent_8801m4b9kpqye5e8vv0m0emfvqk3` |
 | Dana Whitcomb | Insurance premium change | `agent_6301m0ztb3e3ew3a7x5y5abhwjx6` |
 
@@ -83,7 +83,8 @@ Each caller's persona and lines come from the agent's system prompt in the Eleve
 
 ## Per-customer prototypes
 
-`prototypes-src/rail-snapshot-2.html` is the original export, never edited. Running
+`prototypes-src/rail-snapshot-3.html` is the current export (`rail-snapshot-2.html`, the earlier one, is kept for
+reference). Neither is edited by the build. Running
 
 ```bash
 npm run build:prototypes
@@ -94,12 +95,13 @@ data in `tools/clients.js`. Each build:
 
 - shows that customer's name, loan number, address, phone, email, last-4 SSN and last payment in the
   identity check, header and call controls, matching the call scripts;
-- opens that customer's playbook after verification (refund reissue, paid shortage or premium change);
-- rewrites the right panel (why they're calling, activity, payments, upcoming changes, taxes and
-  insurance) and the live call summary for that customer. The Recap appears for Marcus only, as a
+- opens that customer's playbook after verification (escrow refund issue, paid shortage or premium change);
+- rewrites the right panel (why they're calling, activity, the Payments card, upcoming changes, taxes
+  and insurance) and the live call summary for that customer. The Recap appears for Marcus only, as a
   refinance pitch (FHA Streamline, estimated figures);
 - fixes the right panel so it opens and stays open on laptop-width screens;
-- lets Ruth's reissue go by standard mail, FedEx or wire;
+- puts Ruth's figures in the Escrow refund issue playbook (her name, payee, and her $1,612.40
+  payment in the escrow analysis), and describes wire as exception-based with the bank details it needs;
 - adds generic playbooks to the "Something else…" dropdown (payoff quote, make a payment, autopay,
   address change, late fee waiver, 1098, hardship, modification), with neutral guidance from the
   customer's loan;
