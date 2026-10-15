@@ -29,7 +29,16 @@ module.exports = {
     ],
     ctx: {
       why: ["Escrow", "Refund check for <span class=\"cx-ok cx-num\">$1,284.60</span> hasn’t been cashed", "Mailed Aug 4 · check no. 0041887"], // green: money owed to her
-      recap: null, // recap shows for Marcus only
+      // Recap (shown in the "recap" and "both" rail versions), from her script's canonical answers
+      recap: {
+        label: "Eligible for",
+        elig: "A <b>stop payment and reissue</b>. Check 0041887 for <b class=\"cx-num\">$1,284.60</b> was mailed Aug 4 and hasn’t been cashed. It’s past the 30-day gate, the account is current and there’s no prior stop-pay.",
+        points: [
+          "“Your refund check for $1,284.60 went out Aug 4 and hasn’t been cashed, so I can stop it and send you a new one on this call.”",
+          "“I have your mailing address as 428 Maple Ave in Boulder. Is that still the best place to send it?”",
+          "“The new check can go by standard mail, or by FedEx for a fee of about $7. A wire needs instructions from your bank, sent to our Research Department.”",
+        ],
+      },
       activity: [
         ["Refund check mailed · no. 0041887", "Aug 4"],
         ["Escrow analysis · surplus $1,284.60", "Jul 28"],
@@ -151,7 +160,16 @@ module.exports = {
     ],
     ctx: {
       why: ["Insurance", "Switched to a cheaper homeowners policy · <span class=\"cx-ok cx-num\">−$264/yr</span>", "Dec page received Oct 3 · Front Range Mutual"], // green: a saving
-      recap: null, // recap shows for Marcus only
+      // Recap (shown in the "recap" and "both" rail versions), from her script's canonical answers
+      recap: {
+        label: "Eligible for",
+        elig: "An <b>off-cycle escrow analysis</b>. The Front Range Mutual policy FRM-2209-4417 (<b class=\"cx-num\">$1,380.00</b> a year from Oct 1) is on file and matches the dec page. The premium went down, so she doesn’t have to wait for the annual review.",
+        points: [
+          "“Your new policy is on file at $1,380 a year. That’s $22 a month less going into escrow.”",
+          "“Because your premium went down, I can rerun your escrow now instead of waiting for the annual review.”",
+          "“Your new monthly payment comes from that analysis, and I’ll send you an updated statement.”",
+        ],
+      },
       activity: [
         ["Dec page received · Front Range Mutual", "Oct 3"],
         ["Payment cleared Oct 1 · autopay", "$1,683.22"],

@@ -35,6 +35,9 @@ window.SIM_CONFIG = {
   // The customers every participant gets. Each new participant gets them in a random order
   // (here Ruth → Dana or Dana → Ruth). Remove this line to pick from all customers instead.
   callSet: ["ruth", "dana"],
+  // Right-rail versions. Each new participant gets one at random and keeps it for both calls:
+  //   upcoming = Upcoming changes only · recap = Recap only · both = Recap and Upcoming changes
+  railVariants: ["upcoming", "recap", "both"],
   breakSeconds: 10,
 
   // Seconds the phone rings before the caller connects (it keeps ringing until they do). 0 = no ring.

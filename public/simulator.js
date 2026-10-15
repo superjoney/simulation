@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-15.3"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-15.4"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -58,6 +58,9 @@
   $("order").insertBefore(randomOpt, $("order").firstChild);
   if (!orderOverridden) $("order").value = "";
   $("order").addEventListener("change", function () { orderOverridden = !!this.value; });
+  // Right-rail version: random per participant unless chosen here or with ?rail=upcoming|recap|both
+  var RAIL = CFG.railVariants || [];
+  if (RAIL.indexOf(params.get("rail")) >= 0) $("rail-variant").value = params.get("rail");
   if (params.get("participant")) $("participant").value = params.get("participant");
 
   var missing = (CFG.clients || []).filter(function (c) { return !c.agentId; }).map(function (c) { return c.name; });
@@ -242,9 +245,9 @@
     openMic().catch(function () {});
     var name = $("participant").value.trim();
     var chosen = orderOverridden && $("order").value ? $("order").value.split(",") : null;
-    planCalls(name, chosen).then(function (plan) {
+    planCalls(name, chosen, $("rail-variant").value || null).then(function (plan) {
       name = plan.name || name;   // a returning participant keeps the name as they first typed it
-      startSession(name, plan.order, plan.startIdx);
+      startSession(name, plan.order, plan.startIdx, plan.variant);
       if (plan.startIdx > 0) {
         event("session", "Resumed at call " + (plan.startIdx + 1));
         showBreak("Welcome back, " + name.split(/\s+/)[0], "Picking up at call " + (plan.startIdx + 1) + " of " + plan.order.length + ".", true);
@@ -261,22 +264,22 @@
   var callSet = (CFG.callSet || []).filter(function (id) { return BY_ID[id] && BY_ID[id].agentId; });
   var pool = callSet.length ? callSet : CLIENTS.map(function (c) { return c.id; });
   var count = callSet.length || perCall;
-  function planCalls(name, chosen) {
+  function planCalls(name, chosen, railChosen) {
     var local = function () {
       var ids = pool.slice();
       for (var i = ids.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var x = ids[i]; ids[i] = ids[j]; ids[j] = x; }
-      return { order: chosen || ids.slice(0, count), startIdx: 0 };
+      return { order: chosen || ids.slice(0, count), startIdx: 0, variant: railChosen || (RAIL.length ? RAIL[Math.floor(Math.random() * RAIL.length)] : null) };
     };
     if (!server.available) return Promise.resolve(local());
     return fetch("api/progress/start", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name, clients: pool, count: count, order: chosen }),
+      body: JSON.stringify({ name: name, clients: pool, count: count, order: chosen, variants: RAIL, variant: railChosen }),
     }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (d) {
       var order = d.order.filter(function (id) { return BY_ID[id] && BY_ID[id].agentId; });
       if (order.length !== d.order.length) return local();
       var start = 0;
       while (start < order.length && d.done.indexOf(start + 1) >= 0) start++;
-      return { order: order, startIdx: Math.min(start, order.length - 1), name: d.resumed ? d.name : null };
+      return { order: order, startIdx: Math.min(start, order.length - 1), name: d.resumed ? d.name : null, variant: d.variant || railChosen };
     }).catch(local);
   }
 
@@ -289,13 +292,15 @@
 
   /* ---------------- the session ---------------- */
 
-  function startSession(participantId, order, firstIdx) {
+  function startSession(participantId, order, firstIdx, variant) {
     window.SIM_REP_NAME = participantId; // the prototypes' greeting reads this ("This is <name>")
+    window.SIM_RAIL = variant || "both";  // the prototypes' right rail reads this (upcoming | recap | both)
     queue = order.map(function (id) { return BY_ID[id]; });
     log = {
       sessionId: new Date().toISOString().replace(/[:.]/g, "-"),
       participantId: participantId,
       order: order,
+      rail: window.SIM_RAIL,
       devices: { input: devices.inputLabel, output: devices.outputLabel },
       sessionStartedAt: new Date().toISOString(),
       sessionEndedAt: null,
@@ -306,6 +311,7 @@
     $("setup").hidden = true;
     $("stage").hidden = false;
     if (params.get("debug") === "1") showLog(true);
+    event("session", "Right rail: " + window.SIM_RAIL);
     loadCall(firstIdx || 0, false);
   }
 

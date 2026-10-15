@@ -61,7 +61,13 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
 Start, and saves it under their name in `SESSIONS_DIR/progress.json`.
 If they leave part way and come back, entering the same name (case and spacing don't matter) picks
 up at the first call they haven't finished, with the same order. Once they've finished both calls,
-the same name starts a new random session. To fix the order for a session, choose it under
+the same name starts a new random session.
+
+**Right-rail version** is also random per participant, saved with their call order and kept on resume:
+Upcoming changes only, Recap only, or both (`railVariants` in `public/config.js`). Ruth's and Dana's
+Recap is written from their scripts; Marcus's is the refinance pitch. To fix it for a session, choose it
+under **Study settings** or add `&rail=upcoming`, `&rail=recap` or `&rail=both` to the link. Each
+participant's version is saved in `progress.json` (`variant`) and in the session log (`rail`). To fix the order for a session, choose it under
 **Study settings** (small link under Start) or use a link like `/?participant=P07&order=marcus,ruth`.
 
 ### Session log
