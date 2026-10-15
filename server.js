@@ -13,6 +13,7 @@ const API_KEY = process.env.ELEVENLABS_API_KEY || "";
 const PUBLIC_DIR = path.join(__dirname, "public");
 // On Railway, point this at a mounted volume so logs survive redeploys.
 const SESSIONS_DIR = process.env.SESSIONS_DIR || path.join(__dirname, "sessions");
+// Set SIM_LABEL (e.g. "TEST") on a test copy: it shows as a badge so it's never mistaken for the live link.
 // Set this to download every saved log at /api/sessions?key=<value>.
 const RESEARCHER_KEY = process.env.RESEARCHER_KEY || "";
 
@@ -75,13 +76,78 @@ function saveSession(req, res) {
   });
 }
 
+/* ---------- progress: random call order per participant, and resume ----------
+   Kept in SESSIONS_DIR/progress.json, keyed by the participant's name (case and spacing ignored).
+   A new name gets a random order (always including the "always" customer, when set); a name with
+   calls still to do gets its saved order back. */
+const PROGRESS_FILE = path.join(SESSIONS_DIR, "progress.json");
+let progress = {};
+try { progress = JSON.parse(fs.readFileSync(PROGRESS_FILE, "utf8")); } catch { progress = {}; }
+function saveProgress() {
+  fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+  fs.writeFileSync(PROGRESS_FILE + ".tmp", JSON.stringify(progress, null, 2));
+  fs.renameSync(PROGRESS_FILE + ".tmp", PROGRESS_FILE);
+}
+const nameKey = (n) => String(n || "").trim().replace(/\s+/g, " ").toLowerCase().slice(0, 80);
+const ID_RE = /^[a-z0-9_-]{1,40}$/i;
+
+function readJson(req) {
+  return new Promise((resolve) => {
+    let raw = "";
+    req.on("data", (c) => { raw += c; if (raw.length > 1e5) req.destroy(); });
+    req.on("end", () => { try { resolve(JSON.parse(raw)); } catch { resolve(null); } });
+    req.on("error", () => resolve(null));
+  });
+}
+
+function shuffled(list) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+async function progressStart(req, res) {
+  const b = await readJson(req);
+  const key = nameKey(b && b.name);
+  const clients = (b && Array.isArray(b.clients) ? b.clients : []).filter((c) => ID_RE.test(c));
+  const count = Math.max(1, Math.min(Number(b && b.count) || 2, clients.length));
+  if (!key || !clients.length) return sendJson(res, 400, { error: "name_and_clients_required" });
+  const p = progress[key];
+  if (p && !p.finishedAt && p.done.length < p.order.length) {
+    p.resumes = (p.resumes || 0) + 1; p.updatedAt = new Date().toISOString(); saveProgress();
+    return sendJson(res, 200, { name: p.name, order: p.order, done: p.done, resumed: true });
+  }
+  const override = b && Array.isArray(b.order) && b.order.length && b.order.every((c) => clients.includes(c)) ? b.order : null;
+  // "always": a customer every participant gets (e.g. Ruth); the rest of the slots are random, in a random order
+  const always = b && ID_RE.test(b.always || "") && clients.includes(b.always) ? b.always : null;
+  const order = override || (always
+    ? shuffled([always].concat(shuffled(clients.filter((c) => c !== always)).slice(0, count - 1)))
+    : shuffled(clients).slice(0, count));
+  progress[key] = { name: String(b.name).trim().slice(0, 80), order, chosenBy: override ? "researcher" : "random", done: [],
+    startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), finishedAt: null, runs: ((p && p.runs) || 0) + 1 };
+  saveProgress();
+  return sendJson(res, 200, { order, done: [], resumed: false });
+}
+
+async function progressCall(req, res) {
+  const b = await readJson(req);
+  const p = progress[nameKey(b && b.name)];
+  const n = Number(b && b.n);
+  if (!p || !Number.isInteger(n) || n < 1 || n > p.order.length) return sendJson(res, 404, { error: "unknown" });
+  if (!p.done.includes(n)) p.done.push(n);
+  p.updatedAt = new Date().toISOString();
+  if (p.done.length >= p.order.length) p.finishedAt = p.updatedAt;
+  saveProgress();
+  return sendJson(res, 200, { done: p.done, finished: !!p.finishedAt });
+}
+
 function listSessions(req, res) {
   const key = new URL(req.url, "http://x").searchParams.get("key") || "";
   const ok = RESEARCHER_KEY && key.length === RESEARCHER_KEY.length &&
     crypto.timingSafeEqual(Buffer.from(key), Buffer.from(RESEARCHER_KEY));
   if (!ok) return sendJson(res, 403, { error: "forbidden" });
   fs.readdir(SESSIONS_DIR, (err, names) => {
-    const logs = (err ? [] : names.filter((n) => n.endsWith(".json")).sort())
+    const logs = (err ? [] : names.filter((n) => n.endsWith(".json") && n !== "progress.json").sort())
       .map((n) => { try { return JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, n), "utf8")); } catch { return null; } })
       .filter(Boolean);
     res.writeHead(200, {
@@ -115,10 +181,12 @@ http
   .createServer((req, res) => {
     const { pathname } = new URL(req.url, "http://x");
     if (pathname === "/api/config" && req.method === "GET") {
-      return sendJson(res, 200, { tokenAuth: Boolean(API_KEY) });
+      return sendJson(res, 200, { tokenAuth: Boolean(API_KEY), label: process.env.SIM_LABEL || "" });
     }
     if (pathname === "/api/conversation-token" && req.method === "GET") return conversationToken(req, res);
     if (pathname === "/api/sessions" && req.method === "POST") return saveSession(req, res);
+    if (pathname === "/api/progress/start" && req.method === "POST") return progressStart(req, res);
+    if (pathname === "/api/progress/call" && req.method === "POST") return progressCall(req, res);
     if (pathname === "/api/sessions" && req.method === "GET") return listSessions(req, res);
     if (req.method === "GET" || req.method === "HEAD") return serveStatic(req, res);
     res.writeHead(405);

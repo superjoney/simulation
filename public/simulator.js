@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-08.6"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-15.2"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -49,7 +49,15 @@
     o.textContent = key.split(",").map(function (id) { return BY_ID[id].name.split(" ")[0]; }).join(" → ");
     $("order").appendChild(o);
   });
-  if (params.get("order") && orders.indexOf(params.get("order")) >= 0) $("order").value = params.get("order");
+  // Call order is random for each new participant (the server picks it). A researcher can still fix it:
+  // choose an order under Study settings, or add ?order=ruth,marcus to the link.
+  var orderOverridden = false;
+  if (params.get("order") && orders.indexOf(params.get("order")) >= 0) { $("order").value = params.get("order"); orderOverridden = true; }
+  var randomOpt = document.createElement("option");
+  randomOpt.value = ""; randomOpt.textContent = "Random (default)";
+  $("order").insertBefore(randomOpt, $("order").firstChild);
+  if (!orderOverridden) $("order").value = "";
+  $("order").addEventListener("change", function () { orderOverridden = !!this.value; });
   if (params.get("participant")) $("participant").value = params.get("participant");
 
   var missing = (CFG.clients || []).filter(function (c) { return !c.agentId; }).map(function (c) { return c.name; });
@@ -71,7 +79,18 @@
 
   fetch("api/config")
     .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-    .then(function (c) { server = { available: true, tokenAuth: !!c.tokenAuth }; })
+    .then(function (c) {
+      server = { available: true, tokenAuth: !!c.tokenAuth };
+      if (c.label) {
+        // test copies say so on every screen
+        var b = document.createElement("div");
+        b.className = "env-badge";
+        b.textContent = c.label;
+        b.title = "This is not the live simulator";
+        document.body.appendChild(b);
+        document.title = c.label + " · " + document.title;
+      }
+    })
     .catch(function () {})
     .then(studyInfo);
 
@@ -221,12 +240,54 @@
     stopMeter();
     unlockAudio();
     openMic().catch(function () {});
-    startSession($("participant").value.trim(), $("order").value.split(","));
+    var name = $("participant").value.trim();
+    var chosen = orderOverridden && $("order").value ? $("order").value.split(",") : null;
+    planCalls(name, chosen).then(function (plan) {
+      name = plan.name || name;   // a returning participant keeps the name as they first typed it
+      startSession(name, plan.order, plan.startIdx);
+      if (plan.startIdx > 0) {
+        event("session", "Resumed at call " + (plan.startIdx + 1));
+        showBreak("Welcome back, " + name.split(/\s+/)[0], "Picking up at call " + (plan.startIdx + 1) + " of " + plan.order.length + ".", true);
+        setTimeout(function () { if (callState === "idle") $("break").hidden = true; }, 4000);
+      }
+    });
   });
+
+  // Ask the server for this participant's calls: a new name gets a random order, a returning name with
+  // calls left gets its saved order and resumes at the first unfinished call. Without the server, the
+  // order is random in the browser and there's no resume.
+  // the customer every participant gets (config: alwaysInclude), if it has an agent
+  var always = CFG.alwaysInclude && BY_ID[CFG.alwaysInclude] && BY_ID[CFG.alwaysInclude].agentId ? CFG.alwaysInclude : null;
+  function planCalls(name, chosen) {
+    var local = function () {
+      var shuffle = function (ids) { for (var i = ids.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var x = ids[i]; ids[i] = ids[j]; ids[j] = x; } return ids; };
+      var ids = shuffle(CLIENTS.map(function (c) { return c.id; }));
+      var pick = always ? shuffle([always].concat(ids.filter(function (id) { return id !== always; }).slice(0, perCall - 1))) : ids.slice(0, perCall);
+      return { order: chosen || pick, startIdx: 0 };
+    };
+    if (!server.available) return Promise.resolve(local());
+    return fetch("api/progress/start", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name, clients: CLIENTS.map(function (c) { return c.id; }), count: perCall, order: chosen, always: always }),
+    }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (d) {
+      var order = d.order.filter(function (id) { return BY_ID[id] && BY_ID[id].agentId; });
+      if (order.length !== d.order.length) return local();
+      var start = 0;
+      while (start < order.length && d.done.indexOf(start + 1) >= 0) start++;
+      return { order: order, startIdx: Math.min(start, order.length - 1), name: d.resumed ? d.name : null };
+    }).catch(local);
+  }
+
+  // Tell the server a call is done, so a participant who leaves can resume at the next one
+  function markDone(n) {
+    if (!server.available || !log) return;
+    fetch("api/progress/call", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: log.participantId, n: n }), keepalive: true }).catch(function () {});
+  }
 
   /* ---------------- the session ---------------- */
 
-  function startSession(participantId, order) {
+  function startSession(participantId, order, firstIdx) {
     window.SIM_REP_NAME = participantId; // the prototypes' greeting reads this ("This is <name>")
     queue = order.map(function (id) { return BY_ID[id]; });
     log = {
@@ -239,11 +300,11 @@
       calls: [],
       events: [],
     };
-    history.replaceState(null, "", "?participant=" + encodeURIComponent(participantId) + "&order=" + encodeURIComponent(order.join(",")) + (params.get("debug") ? "&debug=1" : ""));
+    history.replaceState(null, "", "?participant=" + encodeURIComponent(participantId) + (orderOverridden ? "&order=" + encodeURIComponent(order.join(",")) : "") + (params.get("debug") ? "&debug=1" : ""));
     $("setup").hidden = true;
     $("stage").hidden = false;
     if (params.get("debug") === "1") showLog(true);
-    loadCall(0, false);
+    loadCall(firstIdx || 0, false);
   }
 
   // Load the prototype for call i. autoStart: start the call without waiting for the participant.
@@ -326,7 +387,7 @@
     clearTimeout(breakTimer);
     saveLog();
     if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); });
-    location.href = location.pathname + "?order=" + encodeURIComponent(log.order.join(","));
+    location.href = location.pathname + "?participant=" + encodeURIComponent(log.participantId);
   }
 
   /* ---------------- the call ---------------- */
@@ -502,7 +563,7 @@
     setCallState(failed ? "failed" : "ended", failed ? "Call dropped" : "");
     conversation = null;
     saveLog();
-    if (!failed && reason !== "participant_left") afterCall();
+    if (!failed && reason !== "participant_left") { markDone(call.n); afterCall(); }
   }
 
   function setMuted(m) {
@@ -705,6 +766,6 @@
 
   $("log-restart").addEventListener("click", function () {
     if (conversation) conversation.endSession();
-    location.href = location.pathname + "?order=" + encodeURIComponent(log ? log.order.join(",") : $("order").value);
+    location.href = location.pathname + (orderOverridden && $("order").value ? "?order=" + encodeURIComponent($("order").value) : "");
   });
 })();

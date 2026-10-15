@@ -94,22 +94,21 @@
         '<button type="button" class="cc-btn" data-cc="add" aria-label="Add or transfer" title="Add or transfer">' + icon("add") + '</button>' +
         '<button type="button" class="cc-btn" data-cc="keypad" aria-label="Keypad" title="Keypad">' + icon("keypad") + '</button>';
 
-    // Popped out: a compact, phone-shaped card
+    // Popped out: caller panel on top, controls underneath
     if (host.id === "cc-float-body") {
       host.innerHTML =
-        '<div class="cc-phone-card" role="group" aria-label="Call with ' + esc(S.caller) + '">' +
-          '<div class="cc-phone-card__who"><span class="cc-name">' + esc(S.caller) + '</span>' +
-            (S.phone ? '<span class="cc-phone">' + esc(S.phone) + '</span>' : '') + '</div>' +
-          '<div class="cc-phone-card__time">' +
-            (live ? '<span class="cc-time">' + duration() + '</span><span class="cc-since">Started ' + esc(S.startClock) + '</span>' +
-                    (S.held ? '<span class="cc-held">On hold</span>' : '')
-                  : '<span>Call ended · ' + duration() + '</span>') +
+        '<div class="cc-card" role="group" aria-label="Call with ' + esc(S.caller) + '">' +
+          '<div class="cc-card__caller' + (live ? '' : ' is-ended') + '">' +
+            '<span class="cc-card__name">' + esc(S.caller) + '</span>' +
+            '<span class="cc-card__meta">' + (S.phone ? '<span>' + esc(S.phone) + '</span><span class="cc-card__sep" aria-hidden="true">|</span>' : '') +
+              (live ? (S.held ? '<span class="cc-held">On hold</span>' : '<span class="cc-time">' + duration() + '</span>') : '<span>Ended</span>') +
+            '</span>' +
           '</div>' +
           (live && S.consult ? '<div class="cc-consult cc-consult--card" role="group" aria-label="Second line: ' + esc(S.consult.name) + '">' +
             '<div class="cc-consult__who"><span class="cc-consult__name">' + esc(S.consult.name) + '</span><span class="cc-consult__st">' + esc(S.consult.number) + ' · ' + consultStatus() + '</span></div>' +
             consultBtns() + '</div>' : '') +
-          (live ? '<div class="cc-phone-card__btns">' + buttons + '</div>' +
-                  '<button type="button" class="cc-end" data-cc="end" aria-label="End call">' + icon("call_end") + 'End call</button>' : '') +
+          (live ? '<div class="cc-card__row"><div class="cc-card__btns">' + buttons + '</div>' +
+                  '<button type="button" class="cc-card__end" data-cc="end" aria-label="End call" title="End call">' + icon("call_end") + '</button></div>' : '') +
         '</div>';
       return;
     }
@@ -252,7 +251,9 @@
     }
     D.body.appendChild(p);
     var r = btn.getBoundingClientRect();
-    p.style.top = Math.round(r.bottom + 10) + "px";
+    // below the button when it fits, otherwise above it (the popped-out card sits at the bottom)
+    var below = r.bottom + 10, above = r.top - 10 - p.offsetHeight;
+    p.style.top = Math.round(below + p.offsetHeight <= W.innerHeight - 8 || above < 8 ? Math.min(below, W.innerHeight - p.offsetHeight - 8) : above) + "px";
     p.style.left = Math.round(Math.max(8, Math.min(r.left + r.width / 2 - p.offsetWidth / 2, W.innerWidth - p.offsetWidth - 8))) + "px";
   }
   function closePop() { var p = D.querySelectorAll(".cc-pop"); for (var i = 0; i < p.length; i++) p[i].remove(); }

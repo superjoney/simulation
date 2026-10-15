@@ -8,8 +8,8 @@ module.exports = {
   ADDR_SRC,
 
   ruth: {
-    title: "Escrow refund reissue",
-    playbook: "e11", // script: refund reissue
+    title: "Escrow refund issue",
+    playbook: "e11", // script: refund reissue (Escrow refund issue playbook)
     first: "Ruth",
     full: "Ruth Calloway",
     legal: "Ruth Ann Calloway", // script
@@ -35,11 +35,8 @@ module.exports = {
         ["Escrow analysis · surplus $1,284.60", "Jul 28"],
         ["Payment cleared Oct 1 · autopay", "$1,612.40"],
       ],
-      stats: [
-        ["Last paid", "$1,612.40", "<b>Oct 1</b>", "Autopay"],
-        ["Escrow bal.", "$206.40", "After refund", "No shortage"],
-        ["Next due", "$1,612.40", "<b>Nov 1</b>", "Autopay"],
-      ],
+      // Payments card: [date, detail, amount] for next due and last paid, then the footer row
+      pay: { next: ["Nov 1", "autopay", "$1,612.40"], last: ["Oct 1", "autopay", "$1,612.40"], foot: ["Escrow balance", "$206.40"] }, // script
       upcoming: [
         ["Dec 1", "Taxes due · Boulder Co.", "$3,118/yr", "Semi-annual"],
         ["Jan 31, 2027", "Uncashed check posts back to escrow", "$1,284.60", "Day 180 · KA-01215"],
@@ -47,6 +44,13 @@ module.exports = {
       taxes: ["Boulder Co.", "Boulder County Treasurer", "$3,118", "Dec 1, 2026", "Jun 1, 2026 · $1,559.00"],
       insurance: ["Pinecrest Home Insurance", "Pinecrest", "$1,452", "PHI-30418-CO", "Apr 2, 2027", "Apr 2, 2026"],
     },
+    // The Escrow refund issue playbook's escrow analysis is written around a $1,459.00 payment. Ruth's
+    // payment is $1,612.40 (script), so P&I becomes $1,509.20; base escrow, cushion and refund are unchanged.
+    rr: [
+      ["1,355.80", "1,509.20", 2], ["1355.80", "1509.20", 2],
+      ["1,459.00", "1,612.40", 6], ["1459.00", "1612.40"],
+      ["1,473.00", "1,626.40", 2], ["1473.00", "1626.40"],
+    ],
     summary: [
       "The client called because an escrow refund check for $1,284.60 never arrived.",
       "The CR confirmed check no. 0041887 was mailed Aug 4, 2026 and has not been cashed.",
@@ -96,11 +100,7 @@ module.exports = {
         ["Payment cleared Oct 1", "$1,425.88"],
         ["Escrow analysis · shortage $216.65", "Sep 28"],
       ],
-      stats: [
-        ["Last paid", "$1,425.88", "<b>Oct 1</b>", "On time"],
-        ["Escrow/mo", "$398.40", "↑ $33.12", "from Dec 1", true],
-        ["Next due", "$1,425.88", "<b>Nov 1</b>", "Not scheduled"],
-      ],
+      pay: { next: ["Nov 1", "Not scheduled", "$1,425.88"], last: ["Oct 1", "On time<br>Shortage $216.65 paid Oct 2", "$1,425.88"], foot: ["Escrow per month from Dec 1", "$398.40"] }, // script
       upcoming: [
         ["Dec 1", "Payment change", "$1,425.88 → $1,459.00", "Escrow analysis Sep 28 · +$33.12"],
         ["Dec 1", "Taxes due · Cass Co.", "$2,946.84/yr", "Up $78.84/yr"],
@@ -138,11 +138,7 @@ module.exports = {
         ["Payment cleared Oct 1 · autopay", "$1,683.22"],
         ["Summit Home Insurance policy ended", "Oct 1"],
       ],
-      stats: [
-        ["Last paid", "$1,683.22", "<b>Oct 1</b>", "Autopay"],
-        ["Escrow/mo", "$401.75", "Ins. $137.00/mo", "on old policy"],
-        ["Next due", "$1,683.22", "<b>Nov 1</b>", "Autopay"],
-      ],
+      pay: { next: ["Nov 1", "autopay", "$1,683.22"], last: ["Oct 1", "autopay", "$1,683.22"], foot: ["Escrow per month", "$401.75"] }, // script
       upcoming: [
         ["Pending", "Off-cycle escrow analysis", "−$22.00/mo", "Lower premium · Front Range Mutual"],
         ["Dec 1", "Taxes due · Boulder Co.", "$2,880/yr", "Semi-annual"],

@@ -6,11 +6,11 @@ back, each with its own customer, prototype data and playbook.
 
 | Customer | Playbook | Agent |
 | --- | --- | --- |
-| Ruth Calloway | Escrow refund reissue | `agent_1701m4b8pgpze1ys6fn2g0m9qqkt` (Ruth-agent) |
+| Ruth Calloway | Escrow refund issue | `agent_1701m4b8pgpze1ys6fn2g0m9qqkt` (Ruth-agent) |
 | Marcus Dell | Payment increase after paid shortage | `agent_8801m4b9kpqye5e8vv0m0emfvqk3` |
 | Dana Whitcomb | Insurance premium change | `agent_6301m0ztb3e3ew3a7x5y5abhwjx6` |
 
-A session plays two of the three; **Study settings** picks which two and in what order.
+A session plays two of the three: always Ruth, plus Marcus or Dana at random, in a random order (see below).
 
 ## Run it
 
@@ -28,6 +28,7 @@ Requires Node 18+. No `npm install` step. Use Chrome or Edge, and open the page 
 | `ELEVENLABS_API_KEY` | none | When set, the browser gets a short-lived conversation token per call from `/api/conversation-token`, so the key never reaches the browser. When unset, the browser connects with the agent ID, which only works if the agent is public (authentication off). |
 | `PORT` | `3000` | Server port. |
 | `SESSIONS_DIR` | `./sessions` | Where session logs are saved. Point it at a mounted volume when hosted. |
+| `SIM_LABEL` | none | Shows a badge (e.g. `TEST`) on every screen. Set it on test copies only. |
 | `RESEARCHER_KEY` | none | Enables `GET /api/sessions?key=…`, which downloads every saved log. Off when unset. |
 
 ## Hosting on Railway
@@ -55,9 +56,13 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
 4. After the last call the card says the session is complete.
 5. The rocket logo in the prototype goes back to the start page (with a confirm during a call).
 
-**Study settings** (small link under Start) sets the call order, e.g. Ruth → Marcus or
-Marcus → Ruth, for counterbalancing. Links can preset it:
-`/?participant=P07&order=marcus,ruth`.
+**Call order** is random for each new participant: every participant gets Ruth (`alwaysInclude` in
+`public/config.js`), the other call is Marcus or Dana at random, and the order is random too. The
+server picks this when they press Start, and saves it under their name in `SESSIONS_DIR/progress.json`.
+If they leave part way and come back, entering the same name (case and spacing don't matter) picks
+up at the first call they haven't finished, with the same order. Once they've finished both calls,
+the same name starts a new random session. To fix the order for a session, choose it under
+**Study settings** (small link under Start) or use a link like `/?participant=P07&order=marcus,ruth`.
 
 ### Session log
 
@@ -82,7 +87,8 @@ Each caller's persona and lines come from the agent's system prompt in the Eleve
 
 ## Per-customer prototypes
 
-`prototypes-src/rail-snapshot-2.html` is the original export, never edited. Running
+`prototypes-src/rail-snapshot-3.html` is the current export (`rail-snapshot-2.html`, the earlier one, is kept for
+reference). Neither is edited by the build. Running
 
 ```bash
 npm run build:prototypes
@@ -93,12 +99,13 @@ data in `tools/clients.js`. Each build:
 
 - shows that customer's name, loan number, address, phone, email, last-4 SSN and last payment in the
   identity check, header and call controls, matching the call scripts;
-- opens that customer's playbook after verification (refund reissue, paid shortage or premium change);
-- rewrites the right panel (why they're calling, activity, payments, upcoming changes, taxes and
-  insurance) and the live call summary for that customer. The Recap appears for Marcus only, as a
+- opens that customer's playbook after verification (escrow refund issue, paid shortage or premium change);
+- rewrites the right panel (why they're calling, activity, the Payments card, upcoming changes, taxes
+  and insurance) and the live call summary for that customer. The Recap appears for Marcus only, as a
   refinance pitch (FHA Streamline, estimated figures);
 - fixes the right panel so it opens and stays open on laptop-width screens;
-- lets Ruth's reissue go by standard mail, FedEx or wire;
+- puts Ruth's figures in the Escrow refund issue playbook (her name, payee, and her $1,612.40
+  payment in the escrow analysis), and describes wire as exception-based with the bank details it needs;
 - adds generic playbooks to the "Something else…" dropdown (payoff quote, make a payment, autopay,
   address change, late fee waiver, 1098, hardship, modification), with neutral guidance from the
   customer's loan;

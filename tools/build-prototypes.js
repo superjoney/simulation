@@ -1,6 +1,6 @@
 // Builds one prototype per client from the original export.
 //   node tools/build-prototypes.js
-// Reads prototypes-src/rail-snapshot-2.html (never modified) and writes public/prototypes/<client>.html.
+// Reads prototypes-src/rail-snapshot-3.html (never modified) and writes public/prototypes/<client>.html.
 // Every edit is an exact find-and-replace that must match the expected number of times, so a new
 // export that changes the code fails loudly here instead of silently showing the wrong data.
 
@@ -9,7 +9,7 @@ const path = require("path");
 const CLIENTS = require("./clients");
 
 const ROOT = path.join(__dirname, "..");
-const SRC = path.join(ROOT, "prototypes-src", "rail-snapshot-2.html");
+const SRC = path.join(ROOT, "prototypes-src", "rail-snapshot-3.html");
 const OUT_DIR = path.join(ROOT, "public", "prototypes");
 const RUNTIME = fs.readFileSync(path.join(__dirname, "sim-client-runtime.js"), "utf8");
 
@@ -79,11 +79,11 @@ function common(t) {
     "    for (var i = 0; i < alias.length; i++) PG_GUIDANCE[alias[i]] = PG_GENERIC;\n  })();\n" +
     "  if (window.SIM_CLIENT && window.SIM_CLIENT.addPlaybooks) window.SIM_CLIENT.addPlaybooks(PG_CATALOG, PG_GUIDANCE);");
   t = replace(t,
-    "    [\'p02\', \'Payment date change\'], [\'e09\', \'Remove escrow request\'], [\'e11\', \'Escrow refund reissue\']\n  ];",
-    "    [\'p02\', \'Payment date change\'], [\'e09\', \'Remove escrow request\'], [\'e11\', \'Escrow refund reissue\']\n  ];\n" +
+    "    [\'p02\', \'Payment date change\'], [\'e09\', \'Remove escrow request\'], [\'e11\', \'Escrow refund issue\']\n  ];",
+    "    [\'p02\', \'Payment date change\'], [\'e09\', \'Remove escrow request\'], [\'e11\', \'Escrow refund issue\']\n  ];\n" +
     "  if (W.SIM_CLIENT && W.SIM_CLIENT.genericCatalog) PLAYBOOKS = PLAYBOOKS.concat(W.SIM_CLIENT.genericCatalog);");
   t = replace(t, "function KAnum(id, g) {", "function KAnum(id, g) {\n    if (!id) return '';");
-  t = replace(t, "function KA(id) {", "function KA(id) {\n    if (!id) return '';", 2);
+  t = replace(t, "function KA(id) {", "function KA(id) {\n    if (!id) return '';", 3);
   t = replace(t,
     "if ((el = $('pg-sources')) && g.sources) el.innerHTML = '<span>Sources:</span>' +",
     "if ((el = $('pg-sources')) && g.sources) el.innerHTML = !g.sources.length ? '' : '<span>Sources:</span>' +");
@@ -116,7 +116,7 @@ function common(t) {
 
   // Remove system-location labels, iAssist mentions, "Needs SME" tags and reviewer flags
   t = replace(t, "(s.sys ? '<span class=\"rz-sys\">' + s.sys + '</span>' : '')", "''");
-  t = replace(t, "var UNV = '<span class=\"rz-unv\" title=\"Not in the CR training or HOOT articles reviewed. Confirm with an SME.\">Needs SME</span>';", "var UNV = '';");
+  t = replace(t, "var UNV = '<span class=\"rz-unv\" title=\"Not in the CR training or HOOT articles reviewed. Confirm with an SME.\">Needs SME</span>';", "var UNV = '';", 2);
   t = replace(t, "TM.UNV = '<span class=\"rz-unv\" title=\"Not in the CR training or HOOT articles reviewed. Confirm with an SME.\">Needs SME</span>';", "TM.UNV = '';");
   t = replace(t,
     "(b === 'rkt' ? '<span class=\"pg-e11-bsep\">|</span>' + ctl('Loan · iAssist', 'e11loan', s.loan === 'iassist', 'iassist') + SEP + ctl('Legacy pre-iAssist', 'e11loan', s.loan === 'legacy', 'legacy') : '') +",
@@ -131,7 +131,20 @@ function common(t) {
     "/* simulator build · no reviewer markers or data-source tooltips */\n" +
     ".rz-unv,.rz-flag,.rz-sys,.rt-tip{display:none!important}\n.rt{border-bottom:0!important;cursor:inherit!important}\n" +
     "</style>\n<script id=\"shell-versions-shell\">");
+
+  // Escrow refund issue playbook (rr-playbook): wire is exception-based and needs the client's bank details
+  t = replace(t,
+    "wire:  { label: 'Wire', note: 'Fee and eligibility ' + UNV, time: UNV, say: 'I can check whether a wire is available for this refund.' }",
+    "wire:  { label: 'Wire', note: 'Exception-based · needs wire instructions from the client’s bank, or a voided check on bank letterhead, sent to the Research Department ' + KA('KA-01804'), time: 'Starts once the Research Department has the bank details', say: 'A wire needs instructions from your bank, or a voided check on bank letterhead, sent to our Research Department. Once we have that, the money goes out.' }");
   return t;
+}
+
+// Edits limited to one <script id="…"> block of the template
+function inScript(t, id, fn) {
+  const start = `<script id="${id}">`;
+  const i = t.indexOf(start), j = i < 0 ? -1 : t.indexOf("</script>", i);
+  if (i < 0 || j < 0) throw new Error(`Script not found: ${id}`);
+  return t.slice(0, i) + fn(t.slice(i, j)) + t.slice(j);
 }
 
 /* ---------- client data ---------- */
@@ -165,7 +178,7 @@ function forClient(t, id, c) {
   // address (longest forms first)
   const line = `${A.street}, ${A.city}, ${A.state}`;
   t = replace(t, `{ street: '${S.street}', unit: '', city: '${S.city}', state: '${S.state}', zip: '${S.zip}' }`,
-    `{ street: '${q(A.street)}', unit: '', city: '${q(A.city)}', state: '${A.state}', zip: '${A.zip}' }`);
+    `{ street: '${q(A.street)}', unit: '', city: '${q(A.city)}', state: '${A.state}', zip: '${A.zip}' }`, 2);
   t = replace(t, `${S.street}, ${S.city}, ${S.state}, ${S.zip}`, `${line}, ${A.zip}`, "any");
   t = replace(t, `${S.street}, ${S.city}, ${S.state} ${S.zip}`, `${line} ${A.zip}`, "any");
   t = replace(t, `${S.street}, ${S.city}, ${S.state}`, line, "any");
@@ -182,11 +195,14 @@ function forClient(t, id, c) {
   t = replace(t, "(444) 222 – 8888", c.phone, "any");
   t = replace(t, "456123789", c.loan, "any");
   t = replace(t, "Marcus Johnson", c.full, "any");
-  t = replace(t, "Payee = JOHNSON", "Payee = " + c.full.split(" ").pop().toUpperCase());
-  t = replace(t, "Payee JOHNSON", "Payee " + c.full.split(" ").pop().toUpperCase());
+  t = replace(t, "Payee = JOHNSON", "Payee = " + c.full.split(" ").pop().toUpperCase(), 2);
+  t = replace(t, "Payee JOHNSON", "Payee " + c.full.split(" ").pop().toUpperCase(), 2);
+  t = replace(t, "payee JOHNSON", "payee " + c.full.split(" ").pop().toUpperCase());
   if (c.first !== "Marcus") t = replace(t, "Marcus", c.first, "any");
 
   for (const [find, repl] of c.i02 || []) t = replace(t, find, repl);
+  // the Escrow refund issue playbook's escrow analysis, in this client's payment
+  if (c.rr) t = inScript(t, "rr-playbook-script", (s) => { for (const [find, repl, n] of c.rr) s = replace(s, find, repl, n || 1); return s; });
   return t;
 }
 
