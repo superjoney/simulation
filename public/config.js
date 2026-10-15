@@ -32,8 +32,9 @@ window.SIM_CONFIG = {
 
   // How many calls a session plays back to back, and the break between them.
   callsPerSession: 2,
-  // Every participant gets this customer; the other call is random, and so is the order.
-  alwaysInclude: "ruth",
+  // The customers every participant gets. Each new participant gets them in a random order
+  // (here Ruth → Dana or Dana → Ruth). Remove this line to pick from all customers instead.
+  callSet: ["ruth", "dana"],
   breakSeconds: 10,
 
   // Seconds the phone rings before the caller connects (it keeps ringing until they do). 0 = no ring.

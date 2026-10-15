@@ -10,7 +10,7 @@ back, each with its own customer, prototype data and playbook.
 | Marcus Dell | Payment increase after paid shortage | `agent_8801m4b9kpqye5e8vv0m0emfvqk3` |
 | Dana Whitcomb | Insurance premium change | `agent_6301m0ztb3e3ew3a7x5y5abhwjx6` |
 
-A session plays two of the three: always Ruth, plus Marcus or Dana at random, in a random order (see below).
+A session plays Ruth and Dana, in a random order for each participant (see below).
 
 ## Run it
 
@@ -56,9 +56,9 @@ Download every saved log as one JSON file at `https://<your-domain>/api/sessions
 4. After the last call the card says the session is complete.
 5. The rocket logo in the prototype goes back to the start page (with a confirm during a call).
 
-**Call order** is random for each new participant: every participant gets Ruth (`alwaysInclude` in
-`public/config.js`), the other call is Marcus or Dana at random, and the order is random too. The
-server picks this when they press Start, and saves it under their name in `SESSIONS_DIR/progress.json`.
+**Call order** is random for each new participant: everyone gets Ruth and Dana (`callSet` in
+`public/config.js`), as Ruth → Dana or Dana → Ruth at random. The server picks this when they press
+Start, and saves it under their name in `SESSIONS_DIR/progress.json`.
 If they leave part way and come back, entering the same name (case and spacing don't matter) picks
 up at the first call they haven't finished, with the same order. Once they've finished both calls,
 the same name starts a new random session. To fix the order for a session, choose it under

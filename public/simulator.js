@@ -8,7 +8,7 @@
   "use strict";
 
   var CFG = window.SIM_CONFIG || {};
-  var VERSION = "2026-10-15.2"; // shown under Study settings, to confirm which copy is running
+  var VERSION = "2026-10-15.3"; // shown under Study settings, to confirm which copy is running
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
 
@@ -256,19 +256,21 @@
   // Ask the server for this participant's calls: a new name gets a random order, a returning name with
   // calls left gets its saved order and resumes at the first unfinished call. Without the server, the
   // order is random in the browser and there's no resume.
-  // the customer every participant gets (config: alwaysInclude), if it has an agent
-  var always = CFG.alwaysInclude && BY_ID[CFG.alwaysInclude] && BY_ID[CFG.alwaysInclude].agentId ? CFG.alwaysInclude : null;
+  // The customers each session plays (config: callSet), in a random order. Without callSet, any
+  // callsPerSession of the customers.
+  var callSet = (CFG.callSet || []).filter(function (id) { return BY_ID[id] && BY_ID[id].agentId; });
+  var pool = callSet.length ? callSet : CLIENTS.map(function (c) { return c.id; });
+  var count = callSet.length || perCall;
   function planCalls(name, chosen) {
     var local = function () {
-      var shuffle = function (ids) { for (var i = ids.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var x = ids[i]; ids[i] = ids[j]; ids[j] = x; } return ids; };
-      var ids = shuffle(CLIENTS.map(function (c) { return c.id; }));
-      var pick = always ? shuffle([always].concat(ids.filter(function (id) { return id !== always; }).slice(0, perCall - 1))) : ids.slice(0, perCall);
-      return { order: chosen || pick, startIdx: 0 };
+      var ids = pool.slice();
+      for (var i = ids.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var x = ids[i]; ids[i] = ids[j]; ids[j] = x; }
+      return { order: chosen || ids.slice(0, count), startIdx: 0 };
     };
     if (!server.available) return Promise.resolve(local());
     return fetch("api/progress/start", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name, clients: CLIENTS.map(function (c) { return c.id; }), count: perCall, order: chosen, always: always }),
+      body: JSON.stringify({ name: name, clients: pool, count: count, order: chosen }),
     }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (d) {
       var order = d.order.filter(function (id) { return BY_ID[id] && BY_ID[id].agentId; });
       if (order.length !== d.order.length) return local();
