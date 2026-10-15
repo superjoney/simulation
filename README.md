@@ -87,8 +87,20 @@ Each caller's persona and lines come from the agent's system prompt in the Eleve
 
 ## Per-customer prototypes
 
-`prototypes-src/rail-snapshot-3.html` is the current export (`rail-snapshot-2.html`, the earlier one, is kept for
-reference). Neither is edited by the build. Running
+The simulator builds from the newest export version. Earlier versions are kept, never edited:
+
+| Version | What changed |
+| --- | --- |
+| `rail-snapshot-2.html` | Original export. |
+| `rail-snapshot-3.html` | Payments card in the rail, playbook search label, Escrow refund issue playbook (Oct 15). |
+| `rail-snapshot-4.html` | Touchpoints tab: section merged (Oct 15 handback). |
+
+Section handbacks live in `prototypes-src/sections/<name>/` (as in the design kit). To bundle them into a
+new version: `node tools/bundle-sections.js prototypes-src/rail-snapshot-3.html prototypes-src/rail-snapshot-4.html`.
+It prints a decoded copy of the page for the section tests, e.g.
+`TM_TB=<decoded copy> node prototypes-src/sections/touchpoints/test-touchpoints.js | tail -1`.
+
+Running
 
 ```bash
 npm run build:prototypes

@@ -1,0 +1,165 @@
+/* ═══ sections/touchpoints · f-tp · Touchpoint history (condensed) ═══
+   Nova: nova-chip (single-select filters), nova-form-field--outline (search) + nova-menu listbox (typeahead),
+   nova-table + nova-table__sort (aria-sort), nova-tag (case status, payment flags, codes), nova-button / nova-icon-button,
+   tm-avatar. Everything below is tp- layout glue on var(--nova-…) tokens. List rows carry no icons; artifact and
+   linked-communication cards keep theirs.
+   Density: search full width on its own line, chips below it (they wrap as more are added), single-line rows (~46px), compact detail (3-column grid, allocation beside details). */
+.tp{display:flex;flex-direction:column;box-sizing:border-box;padding:20px 20px 10px;border:1px solid var(--nova-gray-200);border-radius:18px;background:var(--nova-bg-primary,#fff);font-size:13.5px;color:var(--nova-gray-800);overflow:hidden}
+.tp-ico{width:16px;height:16px;flex:none;color:currentColor}
+.tp-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.tp-head{padding:0 0 14px}
+.tp-h{margin:0;font-size:17px;line-height:24px;font-weight:600;color:var(--nova-gray-800)}
+.tp-h:focus{outline:none}
+.tp-h:focus-visible{outline:2px solid var(--nova-gray-800);outline-offset:2px;border-radius:4px}
+
+/* toolbar: chips left, search right, one row */
+.tp-bar{display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:0 -20px;padding:14px 20px;border-top:1px solid var(--nova-gray-200)}
+.tp-bar-chips{min-width:0}
+.tp-chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.tp-chip.nova-chip{height:30px;padding:5px 13px;font-size:13.5px}
+.tp-chip:focus-visible{outline:2px solid var(--nova-gray-800);outline-offset:2px}
+
+/* search: Nova outline form field as a 32px pill, with a Nova menu as the typeahead listbox */
+.tp-search{position:relative;width:100%}
+.tp-search .tp-search-g{flex-direction:row;align-items:center;gap:6px;height:34px;padding:0 5px 0 14px;border-radius:999px;box-sizing:border-box}
+.tp-search-ico{width:16px;height:16px;color:var(--nova-gray-600)}
+.tp-search .tp-q{flex:1;min-width:0;height:100%;padding:0;font-size:13px;line-height:18px;background-image:none;min-height:0;resize:none}
+.tp-q-x{flex:none;width:24px;height:24px}
+.tp-q-x .tp-ico{width:14px;height:14px}
+.tp-q-x[hidden]{display:none}
+.tp-q-x:focus-visible{outline:2px solid var(--nova-gray-800);outline-offset:1px}
+.tp-dd{left:0;right:auto;top:calc(100% + 4px);width:100%;max-width:520px;max-height:300px;overflow-y:auto;padding:4px}
+.tp-dd .nova-menu__item{padding:6px 10px}
+.tp-dd .nova-menu__item-text{font-size:13.5px}
+.tp-dd .nova-menu__item-caption{font-size:12px}
+.tp-opt{cursor:pointer}
+.tp-opt.nova-menu__item--selected{background:var(--nova-gray-100)}
+.tp-dd-none{cursor:default}
+
+/* table */
+.tp-tblw{margin:0 -20px;overflow-x:auto}
+.tp-tbl{table-layout:fixed;font-size:13.5px}
+.tp-tbl thead th{padding:9px 10px;background:var(--nova-gray-50);border-top:1px solid var(--nova-gray-200);border-bottom:1px solid var(--nova-gray-200);
+  font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--nova-gray-800)}
+.tp-tbl th.tp-c-date,.tp-tbl td.tp-c-date{width:72px;padding-left:20px}
+.tp-tbl th.tp-c-ag,.tp-tbl td.tp-c-ag{width:128px;text-align:right}
+.tp-tbl th.tp-c-chev,.tp-tbl td.tp-c-chev{width:34px;padding-left:2px;padding-right:14px;text-align:center}
+.tp-sort{font-weight:700;letter-spacing:inherit;text-transform:inherit;color:var(--nova-gray-800)}
+.tp-sort-ico{width:12px;height:12px;transition:transform .12s ease}
+.tp-sort-ico--asc{transform:rotate(180deg)}
+
+.tp-row{cursor:pointer}
+.tp-row td{padding:12px 10px;vertical-align:middle;border-bottom:1px solid var(--nova-gray-200);transition:background-color .12s ease}
+.tp-row:hover td{background:var(--nova-gray-50)}
+.tp-row--open td,.tp-xrow td{background:var(--nova-gray-50)}
+.tp-row--open td{border-bottom-color:transparent}
+.tp-row--picked td:first-child{box-shadow:inset 3px 0 0 var(--nova-gray-800)}
+.tp-d{display:block;font-size:13px;color:var(--nova-gray-800);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tp-d2{display:block;font-size:11.5px;line-height:14px;color:var(--nova-gray-600)}
+/* single line: title, then the second detail muted; truncates instead of wrapping */
+.tp-exp{display:flex;align-items:baseline;gap:10px;width:100%;min-width:0;padding:0;border:0;background:none;font:inherit;text-align:left;color:inherit;cursor:pointer;border-radius:4px}
+.tp-exp:focus-visible{outline:2px solid var(--nova-gray-800);outline-offset:3px}
+.tp-t{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:20px;font-weight:500;color:var(--nova-gray-800)}
+.tp-s{flex:0 0 auto;font-size:12.5px;line-height:20px;color:var(--nova-gray-600);white-space:nowrap}
+.tp-ag{font-size:13px;color:var(--nova-gray-700,var(--nova-gray-800));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.tp-amt{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+.tp-tag{white-space:nowrap}
+.tp-tbl .nova-tag--small.tp-tag{font-size:11.5px;line-height:16px;padding:1px 7px;min-width:0}
+.tp-chev{width:18px;height:18px;color:var(--nova-gray-600)}
+
+/* expanded detail: one gray block, aligned to the Touchpoint column */
+.tp-xrow td{padding:2px 20px 18px 92px;border-bottom:1px solid var(--nova-gray-200)}
+.tp-x{display:flex;flex-direction:column;gap:14px}
+.tp-handled{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--nova-gray-600)}
+.tp-handled strong{color:var(--nova-gray-800);font-weight:600}
+.tm-avatar.tp-av{width:24px;height:24px;font-size:10px;background:var(--nova-bg-primary,#fff)}
+.tp-sum{margin:0;font-size:13.5px;line-height:1.55;color:var(--nova-gray-700,var(--nova-gray-800))}
+.tp-x-sec{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tp-x-l{padding-bottom:4px;border-bottom:1px solid var(--nova-gray-200);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--nova-gray-700,var(--nova-gray-800))}
+.tp-ptags{display:flex;flex-wrap:wrap;gap:6px}
+.tp-ptag{gap:4px;padding:1px 8px !important;border-radius:999px;font-size:12px;line-height:18px}
+.tp-ptag .tp-ico{width:12px;height:12px}
+.tp-pay2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:14px 28px;align-items:start}
+/* fund allocation: Nova table, ruled rows, bold total */
+.tp-alloc{background:transparent;margin-top:-6px;font-size:13px}
+.tp-alloc td{padding:6px 0;border-bottom:1px solid var(--nova-gray-200);color:var(--nova-gray-700,var(--nova-gray-800))}
+.tp-alloc tfoot td{font-weight:600;color:var(--nova-gray-800);border-bottom:0}
+.tp-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600;color:var(--nova-gray-800)}
+/* detail grid with small uppercase labels */
+.tp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 20px;margin:0}
+.tp-pay2 .tp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.tp-gi{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tp-gi dt{font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--nova-gray-600)}
+.tp-gi dd{margin:0;font-size:13px;line-height:18px;color:var(--nova-gray-800);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tp-gi--ok dt,.tp-gi--ok dd{color:var(--nova-green-700)}
+.tp-codes{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.tp-code-d{font-size:12.5px;color:var(--nova-gray-600);margin-right:6px}
+.tp-thread{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.tp-msg{padding:10px 12px;border-radius:10px;background:var(--nova-bg-primary,#fff);box-shadow:inset 0 0 0 1px var(--nova-gray-200)}
+.tp-msg-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-size:12px;color:var(--nova-gray-600)}
+.tp-msg-dir{font-weight:600;color:var(--nova-gray-800)}
+.tp-msg-date{margin-left:auto}
+.tp-msg-s{margin-top:2px;font-size:13px;font-weight:500}
+.tp-msg-b{margin:1px 0 0;font-size:12.5px;line-height:1.45}
+
+/* artifact + linked-communication cards (the only place icons appear) */
+.tp-cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tp-card{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:8px 12px 8px 8px;border:0;border-radius:12px;background:var(--nova-bg-primary,#fff);
+  box-shadow:inset 0 0 0 1px var(--nova-gray-200);font:inherit;text-align:left;color:var(--nova-gray-800);cursor:pointer;transition:box-shadow .12s ease}
+.tp-card:hover{box-shadow:inset 0 0 0 1px var(--nova-gray-400)}
+.tp-card:focus-visible{outline:2px solid var(--nova-gray-800);outline-offset:2px}
+.tp-card-i{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;border-radius:6px;background:var(--nova-gray-50);color:var(--nova-gray-800)}
+.tp-card-i .tp-ico{width:16px;height:16px}
+.tp-card-i--lg{width:36px;height:36px;border-radius:8px}
+.tp-card-i--lg .tp-ico{width:20px;height:20px}
+.tp-card-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;font-weight:500}
+.tp-card-n--sm{font-size:13px}
+.tp-card-m{font-size:12px;color:var(--nova-gray-600);font-variant-numeric:tabular-nums}
+.tp-card-go{width:14px;height:14px;color:var(--nova-gray-800)}
+
+/* pagination (Nova icon buttons; the Pagination component CSS isn't in this bundle) */
+.tp-pg{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:10px 0 4px}
+.tp-pg-t{font-size:12.5px;color:var(--nova-gray-600)}
+.tp-pg-t:first-child{margin-right:auto}
+.tp-pg .nova-icon-button{width:28px;height:28px}
+.tp-pg .nova-icon-button:disabled{opacity:.4;cursor:default}
+.tp-pg .nova-icon-button:focus-visible{outline:2px solid var(--nova-gray-800);outline-offset:1px}
+.tp-empty{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 0}
+.tp-empty-t{margin:0;font-size:13.5px;color:var(--nova-gray-600)}
+
+/* inline artifact view */
+.tp--art{gap:16px;padding-bottom:20px}
+.tp-crumb ol{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;padding:0;list-style:none;font-size:12.5px;color:var(--nova-gray-600)}
+.tp-crumb li{display:inline-flex;align-items:center;gap:6px}
+.tp-crumb li+li::before{content:'›';color:var(--nova-gray-400)}
+.tp-crumb li[aria-current]{color:var(--nova-gray-800);font-weight:500}
+.tp-crumb-b{padding:0;border:0;background:none;font:inherit;color:var(--nova-gray-800);text-decoration:underline;text-underline-offset:2px;cursor:pointer;border-radius:4px}
+.tp-crumb-b:hover{color:var(--nova-gray-600)}
+.tp-crumb-b:focus-visible{outline:2px solid var(--nova-gray-800);outline-offset:2px}
+.tp-art-h{display:flex;align-items:center;gap:10px}
+.tp-art-s{margin:0;font-size:12.5px;color:var(--nova-gray-600)}
+.tp-doc{display:flex;flex-direction:column;gap:10px;padding:18px 22px;border-radius:12px;background:var(--nova-bg-primary,#fff);box-shadow:inset 0 0 0 1px var(--nova-gray-200)}
+.tp-doc-top{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;color:var(--nova-gray-600)}
+.tp-doc-from{font-weight:600;color:var(--nova-gray-800)}
+.tp-doc-to{display:flex;flex-direction:column;font-size:12.5px;line-height:17px;color:var(--nova-gray-700,var(--nova-gray-800))}
+.tp-doc-t{margin:2px 0 0;font-size:15px;font-weight:600}
+.tp-doc-rows{margin:0;display:flex;flex-direction:column}
+.tp-doc-rows div{display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid var(--nova-gray-200);font-size:13px}
+.tp-doc-rows div:last-child{border-bottom:0}
+.tp-doc-rows dt{color:var(--nova-gray-600)}
+.tp-doc-rows dd{margin:0;text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+.tp-doc-n{display:block;font-size:12px;font-weight:400;color:var(--nova-gray-600)}
+.tp-doc-foot{margin:0;font-size:11.5px;color:var(--nova-gray-500,var(--nova-gray-600))}
+.tp-art-f{display:flex;gap:8px}
+.tp-art-f .nova-button{display:inline-flex;align-items:center;gap:6px}
+
+@media (max-width:760px){
+  .tp{padding-left:14px;padding-right:14px}
+  .tp-bar,.tp-tblw{margin-left:-14px;margin-right:-14px}
+  .tp-bar{padding-left:14px;padding-right:14px}
+  .tp-tbl th.tp-c-date,.tp-tbl td.tp-c-date{width:56px;padding-left:14px}
+  .tp-tbl th.tp-c-ag,.tp-tbl td.tp-c-ag{width:96px}
+  .tp-xrow td{padding-left:14px;padding-right:14px}
+  .tp-grid,.tp-pay2 .tp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tp-pay2,.tp-cards{grid-template-columns:minmax(0,1fr)}
+}

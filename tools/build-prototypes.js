@@ -1,6 +1,6 @@
 // Builds one prototype per client from the original export.
 //   node tools/build-prototypes.js
-// Reads prototypes-src/rail-snapshot-3.html (never modified) and writes public/prototypes/<client>.html.
+// Reads prototypes-src/rail-snapshot-4.html (never modified) and writes public/prototypes/<client>.html.
 // Every edit is an exact find-and-replace that must match the expected number of times, so a new
 // export that changes the code fails loudly here instead of silently showing the wrong data.
 
@@ -9,7 +9,7 @@ const path = require("path");
 const CLIENTS = require("./clients");
 
 const ROOT = path.join(__dirname, "..");
-const SRC = path.join(ROOT, "prototypes-src", "rail-snapshot-3.html");
+const SRC = path.join(ROOT, "prototypes-src", "rail-snapshot-4.html");
 const OUT_DIR = path.join(ROOT, "public", "prototypes");
 const RUNTIME = fs.readFileSync(path.join(__dirname, "sim-client-runtime.js"), "utf8");
 
@@ -193,6 +193,7 @@ function forClient(t, id, c) {
   t = replace(t, "marcus.j@example.com", c.email, "any");
   t = replace(t, "m•••@example.com", c.email[0] + "•••@example.com", "any");
   t = replace(t, "(444) 222 – 8888", c.phone, "any");
+  t = replace(t, "(444) 222-8888", c.phone.replace(/\s*–\s*/, "-"), "any");
   t = replace(t, "456123789", c.loan, "any");
   t = replace(t, "Marcus Johnson", c.full, "any");
   t = replace(t, "Payee = JOHNSON", "Payee = " + c.full.split(" ").pop().toUpperCase(), 2);
