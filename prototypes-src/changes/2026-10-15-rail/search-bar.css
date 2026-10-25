@@ -1,0 +1,6 @@
+/* v50 · playbook search: inline label + subtle gray fill */
+.pg-ta-wrap{display:flex;align-items:center;gap:10px}
+.pg-ta-lbl{font-size:13px;font-weight:500;color:var(--nova-gray-700);white-space:nowrap;cursor:pointer}
+.pg-ta-pill{background:var(--nova-gray-50);border-color:var(--nova-gray-100,#ececea)}
+.pg-ta-pill:focus-within{background:var(--nova-bg-primary);border-color:var(--nova-gray-400)}
+#pg-ta::placeholder{color:var(--nova-gray-600)}

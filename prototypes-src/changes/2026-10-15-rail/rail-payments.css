@@ -1,0 +1,16 @@
+/* v52 · Payments card in the refined rail */
+.cx-pay{margin:22px 0 6px;border:1px solid var(--nova-gray-200);border-radius:16px;padding:12px 10px 10px;background:var(--nova-bg-primary)}
+.cx-pay-h{display:flex;align-items:center;gap:8px;margin:0 6px 8px;font-size:14px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--nova-gray-800)}
+.cx-pay-h .nova-icon{width:20px;height:20px;color:var(--nova-gray-800)}
+.cx-pay-r{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;padding:10px 12px;border-radius:12px}
+.cx-pay-r--next{background:var(--nova-gray-50)}
+.cx-pay-l,.cx-pay-v{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cx-pay-v{align-items:flex-end;text-align:right;flex:none}
+.cx-pay-d{font-size:14px;color:var(--nova-gray-800)}
+.cx-pay-d b{font-weight:500}
+.cx-pay-s{font-size:12px;color:var(--nova-gray-600);line-height:1.35}
+.cx-pay-s b{font-weight:500;color:var(--nova-gray-700)}
+.cx-pay-k{font-size:12px;color:var(--nova-gray-600)}
+.cx-pay-a{font-size:17px;font-weight:500;color:var(--nova-gray-800);line-height:1.2;white-space:nowrap}
+.cx-pay-e{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:6px 2px 0;padding:12px 10px 4px;border-top:1px solid var(--nova-gray-200);font-size:13px;color:var(--nova-gray-600)}
+.cx-num{font-variant-numeric:tabular-nums}
